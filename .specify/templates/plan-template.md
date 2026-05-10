@@ -31,7 +31,19 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Verify each principle from `.specify/memory/constitution.md`. A failing gate is a blocker —
+document violations in the Complexity Tracking table with specific justification.
+
+| Principle | Gate question | Status |
+|---|---|---|
+| I. Automation-First | Does every recurring operation run without manual triggering? | ✅ / ❌ |
+| II. Platform-Native | Are all extension points official and supported (SPFx, Fluent UI, Teams SDK)? | ✅ / ❌ |
+| III. Spec-Driven | Is spec.md approved and research.md complete before this plan? | ✅ / ❌ |
+| IV. SOLID | Does every service/component have a single responsibility? Are dependencies injected? | ✅ / ❌ |
+| V. DRY | Is every config value, lookup, and style token defined exactly once? | ✅ / ❌ |
+| VI. YAGNI | Is every architectural decision justified by a current, documented need? | ✅ / ❌ |
+| VII. Accessibility | Is WCAG 2.1 AA verified for the colour palette before implementation? | ✅ / ❌ |
+| Platform Gate | Is the M365 subscription (Business Basic+) and licensing confirmed? | ✅ / ❌ |
 
 ## Project Structure
 
