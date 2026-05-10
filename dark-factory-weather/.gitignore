@@ -1,0 +1,10 @@
+node_modules/
+lib/
+dist/
+temp/
+sharepoint/solution/
+.heft/
+*.sppkg
+npm-debug.log
+.DS_Store
+Thumbs.db
