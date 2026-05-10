@@ -1,11 +1,29 @@
 # Feature Specification: Rain Alert Automation
 
-**Feature Branch**: `001-weather-system`
+**Feature Branch**: `002-rain-alert-automation`
 **Created**: 2026-05-10
 **Status**: Draft
-**Depends On**: Spec 001 — Weather Display System (configuration store must be set up first; API provider is Open-Meteo as defined in Spec 001)
+**Depends On**: Spec 001 — Weather Display System (configuration store must be set up first; API provider is Open-Meteo as defined in Spec 001); Spec 003 — Tenant Infrastructure (DarkFactory SharePoint site and DarkFactory-Settings list must be provisioned)
+**Automation Platform**: Azure Logic Apps (Consumption plan) — see Clarifications
 **Teams Deployment Target**: Private message to administrator; flows run in the `DarkFactory` tenant context
 **Scope Note**: This spec covers the automated rain detection and private Teams notification flows only. The weather display web part is covered in Spec 001.
+
+---
+
+## Clarifications
+
+### Session 2026-05-10
+
+- Q: The Power Automate HTTP connector (required for Open-Meteo API calls) is a premium connector not included in M365 Business Basic. Which automation platform should be used? → A: Azure Logic Apps (Consumption plan) — pay-per-action pricing, same Teams and SharePoint standard connectors, no additional license required. Power Automate is excluded.
+- Q: Should alert-specific configuration keys (recipient, suppression windows, polling interval) be added to the existing `DarkFactory-Settings` list or managed in a separate list? → A: Extend the existing `DarkFactory-Settings` list with four new `Alert.*` keys. Maintains the single configuration store principle from Spec 001.
+- Q: Where should alert suppression state (last-sent timestamps) be stored, given that Logic App run variables reset on each execution? → A: Dedicated `DarkFactory-AlertState` SharePoint list in the DarkFactory site — persistent across runs, auditable, and uses already-provisioned infrastructure.
+
+### Post-Plan Review — 2026-05-10 (Independent M365 Consultant)
+
+- Finding: Use Logic Apps built-in Filter array action (not For Each) for evaluating hourly WMO codes — For Each generates 48 billed actions/run (~$0.35/day) vs Filter array (free built-in, 1 action). Plan updated accordingly.
+- Finding: Logic Apps `LastSentAt` null-safe handling required on first run (null → send alert). Expression updated in plan and data-model.
+- Finding: `Alert.PollingIntervalMinutes` cannot be read dynamically by the Recurrence trigger (set at design time only). FR-008 updated to note this exception explicitly.
+- Finding: Teams connector action naming differs between Power Automate and Logic Apps ("Post a message (V3)" in Logic Apps designer vs "Post message in a chat or channel (V3)" in PA). Contracts updated to note this.
 
 ---
 
@@ -84,16 +102,18 @@ As the family administrator, I want the alert system to run automatically on its
 - **FR-005**: Forecast rain alerts and current rain alerts MUST NOT suppress each other — they are independent alert types.
 - **FR-006**: Forecast rain alert messages MUST include: the forecast time window, expected rain condition/intensity, alert timestamp, and configured home location name.
 - **FR-007**: Current rain alert messages MUST include: the current condition label, current temperature, detection timestamp, and configured home location name.
-- **FR-008**: The automation MUST read all configuration (home location, API credentials, alert recipient, polling frequency) from the central configuration store established in Spec 001. Nothing may be hardcoded.
-- **FR-009**: The automation MUST recover automatically from transient API or connectivity failures — a single failed poll cycle must not prevent subsequent cycles from running.
-- **FR-010**: Flow run history MUST be retained and visible to the administrator for at least 30 days to support troubleshooting.
-- **FR-011**: The private Teams message recipient MUST be configurable via the settings store — changing the recipient must not require modifying the automation itself.
+- **FR-008**: The automation MUST read all operational configuration from the `DarkFactory-Settings` SharePoint list (established in Spec 001). This list MUST be extended with four new `Alert.*` keys: `Alert.RecipientId` (the administrator's Teams user principal name), `Alert.ForecastSuppressionHours` (default 3), `Alert.CurrentRainSuppressionHours` (default 1), and `Alert.PollingIntervalMinutes` (default 5, stored for discoverability). Exception: the polling interval is set in the Logic App Recurrence trigger at design time and does not change dynamically at runtime — if the `Alert.PollingIntervalMinutes` value is changed, the Logic App trigger must also be updated manually.
+- **FR-009**: Alert suppression state (timestamps of last-sent alerts) MUST be stored in a dedicated `DarkFactory-AlertState` SharePoint list in the DarkFactory site — NOT in flow variables, which do not persist across runs. The list must have one item per alert type (`ForecastRain`, `CurrentRain`), each recording the last-sent timestamp.
+- **FR-010**: The automation MUST recover automatically from transient API or connectivity failures — a single failed poll cycle must not prevent subsequent cycles from running.
+- **FR-011**: Logic App run history MUST be retained and visible to the administrator for at least 30 days to support troubleshooting.
+- **FR-012**: The private Teams message recipient MUST be configurable via `Alert.RecipientId` in the settings store — changing the recipient must not require modifying the Logic App itself.
 
 ### Key Entities
 
+- **AlertState** (`DarkFactory-AlertState` SharePoint list): One item per alert type (`ForecastRain`, `CurrentRain`). Each item stores the `LastSentAt` timestamp of the most recent alert of that type. Read at the start of each Logic App run to determine whether the suppression window has expired; updated when a new alert is sent.
+- **AlertConfig** (rows in `DarkFactory-Settings`): The four `Alert.*` configuration keys — `Alert.RecipientId`, `Alert.ForecastSuppressionHours`, `Alert.CurrentRainSuppressionHours`, `Alert.PollingIntervalMinutes`. Read at the start of each Logic App run.
 - **RainForecastAlert**: A record of a forecast rain alert that was sent — includes the forecast window covered, condition label, and timestamp sent. Used to enforce the 3-hour suppression window.
 - **CurrentRainAlert**: A record of a current rain alert that was sent — includes condition label, temperature at time of alert, and timestamp sent. Used to enforce the 1-hour suppression window.
-- **AlertConfig**: Configuration for the alert system — includes the recipient identifier (administrator's Teams identity), forecast look-ahead window (today remaining + tomorrow), forecast suppression window (3 hours), current rain suppression window (1 hour), and polling interval (5 minutes).
 
 ---
 
@@ -113,13 +133,14 @@ As the family administrator, I want the alert system to run automatically on its
 
 ## Assumptions
 
-- Spec 001 (Weather Display System) is fully deployed and the central configuration store is set up before this spec is implemented.
-- **Open-Meteo** (the API selected in Spec 001) provides rain condition codes and hourly forecast data sufficient to distinguish rain types (drizzle, light rain, heavy rain, showers) and to detect rain in upcoming forecast windows.
-- Microsoft Power Automate (included in the Microsoft 365 Family subscription) supports 5-minute scheduled triggers without requiring a premium plan. This should be verified during planning — Power Automate free/included tiers may enforce a minimum interval; if so, the minimum supported interval becomes the polling frequency.
+- Spec 001 (Weather Display System) and Spec 003 (Tenant Infrastructure) are fully deployed before this spec is implemented. The DarkFactory SharePoint site, `DarkFactory-Settings` list, and App Catalog are all available.
+- **Open-Meteo** (the API selected in Spec 001) provides WMO weather code data sufficient to distinguish rain types (drizzle, light rain, heavy rain, showers) and to detect rain in upcoming forecast windows using standard WMO codes.
+- **Azure Logic Apps (Consumption plan)** is used instead of Power Automate. The Power Automate HTTP connector required to call the Open-Meteo API is a premium connector not included in M365 Business Basic. Azure Logic Apps Consumption plan supports standard SharePoint and Teams connectors, pay-per-action pricing (~$0.01/day at 5-minute polling), and no additional license.
 - The administrator (Camilo) is the sole recipient of private rain alerts. Multi-recipient alerts are out of scope for v1.
 - "Forecast look-ahead" covers today's remaining hours and the full next calendar day only. Alerts for rain predicted 2+ days out are out of scope for v1.
-- The suppression windows (3 hours for forecast, 1 hour for current rain) are stored in the configuration store and can be adjusted without modifying the automation.
-- Alert suppression state (last sent timestamps) is stored within the automation's own run history or a lightweight store — not in the SharePoint settings list.
+- The suppression windows (3 hours for forecast, 1 hour for current rain) are stored in `DarkFactory-Settings` as `Alert.ForecastSuppressionHours` and `Alert.CurrentRainSuppressionHours`, and can be adjusted without modifying the Logic App.
+- Alert suppression state (last sent timestamps) is stored in a dedicated `DarkFactory-AlertState` SharePoint list — NOT in Logic App run variables, which reset on each execution.
 - Severe weather alerts (storms, hail, wind warnings) beyond rain detection are out of scope for v1.
 - No alert retraction or "rain has stopped" notification is sent in v1.
 - The administrator accepts that forecast alerts may occasionally be sent for rain events that do not materialise (forecast inaccuracy is a weather API limitation, not a system defect).
+- The `DarkFactory-Settings` list is extended with four new `Alert.*` seed rows as part of this spec's deployment — not requiring changes to Spec 001 or Spec 003 implementation.
