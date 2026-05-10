@@ -1,0 +1,510 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections": {
+      "defaultValue": {},
+      "type": "Object"
+    }
+  },
+  "triggers": {
+    "Recurrence": {
+      "type": "Recurrence",
+      "recurrence": {
+        "frequency": "Minute",
+        "interval": 5
+      }
+    }
+  },
+  "actions": {
+
+    "Initialize_RainCodes": {
+      "type": "InitializeVariable",
+      "inputs": {
+        "variables": [
+          {
+            "name": "rainCodes",
+            "type": "array",
+            "value": [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99]
+          }
+        ]
+      },
+      "runAfter": {}
+    },
+
+    "Initialize_WmoLabels": {
+      "type": "InitializeVariable",
+      "inputs": {
+        "variables": [
+          {
+            "name": "wmoLabels",
+            "type": "object",
+            "value": {
+              "51": "light drizzle",
+              "53": "moderate drizzle",
+              "55": "heavy drizzle",
+              "56": "light freezing drizzle",
+              "57": "heavy freezing drizzle",
+              "61": "light rain",
+              "63": "moderate rain",
+              "65": "heavy rain",
+              "66": "light freezing rain",
+              "67": "heavy freezing rain",
+              "80": "light rain showers",
+              "81": "moderate rain showers",
+              "82": "violent rain showers",
+              "95": "thunderstorm",
+              "96": "thunderstorm with hail",
+              "99": "thunderstorm with heavy hail"
+            }
+          }
+        ]
+      },
+      "runAfter": {}
+    },
+
+    "Main": {
+      "type": "Scope",
+      "runAfter": {
+        "Initialize_RainCodes": ["Succeeded"],
+        "Initialize_WmoLabels": ["Succeeded"]
+      },
+      "actions": {
+
+        "Get_Settings_Items": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+              }
+            },
+            "method": "get",
+            "path": "/datasets/@{encodeURIComponent(encodeURIComponent('https://aiwhisperer.sharepoint.com/sites/DarkFactory'))}/tables/@{encodeURIComponent(encodeURIComponent('DarkFactory-Settings'))}/items",
+            "queries": {
+              "$filter": "startswith(Title,'Weather.') or startswith(Title,'Alert.')",
+              "$top": 20
+            }
+          },
+          "runAfter": {}
+        },
+
+        "Get_AlertState_Items": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+              }
+            },
+            "method": "get",
+            "path": "/datasets/@{encodeURIComponent(encodeURIComponent('https://aiwhisperer.sharepoint.com/sites/DarkFactory'))}/tables/@{encodeURIComponent(encodeURIComponent('DarkFactory-AlertState'))}/items",
+            "queries": {
+              "$top": 10
+            }
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          },
+          "runtimeConfiguration": {
+            "staticResult": {
+              "name": "Get_AlertState_Items0",
+              "staticResultOptions": "Disabled"
+            }
+          }
+        },
+
+        "Filter_Latitude": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_Settings_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'Weather.Latitude')"
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          }
+        },
+
+        "Filter_Longitude": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_Settings_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'Weather.Longitude')"
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          }
+        },
+
+        "Filter_Timezone": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_Settings_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'Weather.Timezone')"
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          }
+        },
+
+        "Filter_LocationName": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_Settings_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'Weather.LocationName')"
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          }
+        },
+
+        "Filter_RecipientId": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_Settings_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'Alert.RecipientId')"
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          }
+        },
+
+        "Filter_ForecastSuppressionHours": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_Settings_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'Alert.ForecastSuppressionHours')"
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          }
+        },
+
+        "Filter_CurrentRainSuppressionHours": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_Settings_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'Alert.CurrentRainSuppressionHours')"
+          },
+          "runAfter": {
+            "Get_Settings_Items": ["Succeeded"]
+          }
+        },
+
+        "HTTP_Get_Weather": {
+          "type": "Http",
+          "inputs": {
+            "method": "GET",
+            "uri": "@{concat('https://api.open-meteo.com/v1/forecast?latitude=', first(body('Filter_Latitude'))?['DFValue'], '&longitude=', first(body('Filter_Longitude'))?['DFValue'], '&timezone=', first(body('Filter_Timezone'))?['DFValue'], '&current=weather_code,temperature_2m&hourly=weather_code,time&forecast_days=2')}",
+            "retryPolicy": {
+              "type": "exponential",
+              "count": 3,
+              "interval": "PT20S",
+              "maximumInterval": "PT600S"
+            }
+          },
+          "runAfter": {
+            "Filter_Latitude": ["Succeeded"],
+            "Filter_Longitude": ["Succeeded"],
+            "Filter_Timezone": ["Succeeded"]
+          }
+        },
+
+        "Parse_Weather_Response": {
+          "type": "ParseJson",
+          "inputs": {
+            "content": "@body('HTTP_Get_Weather')",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "current": {
+                  "type": "object",
+                  "properties": {
+                    "time": { "type": "string" },
+                    "weather_code": { "type": "integer" },
+                    "temperature_2m": { "type": "number" }
+                  }
+                },
+                "hourly": {
+                  "type": "object",
+                  "properties": {
+                    "time": { "type": "array", "items": { "type": "string" } },
+                    "weather_code": { "type": "array", "items": { "type": "integer" } }
+                  }
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "HTTP_Get_Weather": ["Succeeded"]
+          }
+        },
+
+        "Filter_CurrentRain_Item": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_AlertState_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'CurrentRain')"
+          },
+          "runAfter": {
+            "Get_AlertState_Items": ["Succeeded"]
+          }
+        },
+
+        "Filter_ForecastRain_Item": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Get_AlertState_Items')?['value']",
+            "where": "@equals(item()?['Title'], 'ForecastRain')"
+          },
+          "runAfter": {
+            "Get_AlertState_Items": ["Succeeded"]
+          }
+        },
+
+        "Compose_CurrentRain_Suppression_Expired": {
+          "type": "Compose",
+          "inputs": "@if(equals(first(body('Filter_CurrentRain_Item'))?['LastSentAt'], null), true, less(addHours(first(body('Filter_CurrentRain_Item'))?['LastSentAt'], int(first(body('Filter_CurrentRainSuppressionHours'))?['DFValue'])), utcNow()))",
+          "runAfter": {
+            "Filter_CurrentRain_Item": ["Succeeded"],
+            "Filter_CurrentRainSuppressionHours": ["Succeeded"]
+          }
+        },
+
+        "Compose_ForecastRain_Suppression_Expired": {
+          "type": "Compose",
+          "inputs": "@if(equals(first(body('Filter_ForecastRain_Item'))?['LastSentAt'], null), true, less(addHours(first(body('Filter_ForecastRain_Item'))?['LastSentAt'], int(first(body('Filter_ForecastSuppressionHours'))?['DFValue'])), utcNow()))",
+          "runAfter": {
+            "Filter_ForecastRain_Item": ["Succeeded"],
+            "Filter_ForecastSuppressionHours": ["Succeeded"]
+          }
+        },
+
+        "Check_Current_Rain_Suppression": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Compose_CurrentRain_Suppression_Expired')",
+                  true
+                ]
+              }
+            ]
+          },
+          "runAfter": {
+            "Parse_Weather_Response": ["Succeeded"],
+            "Compose_CurrentRain_Suppression_Expired": ["Succeeded"],
+            "Filter_RecipientId": ["Succeeded"],
+            "Filter_LocationName": ["Succeeded"]
+          },
+          "actions": {
+            "Check_Current_Rain_Code": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "contains": [
+                      "@variables('rainCodes')",
+                      "@body('Parse_Weather_Response')?['current']?['weather_code']"
+                    ]
+                  }
+                ]
+              },
+              "runAfter": {},
+              "actions": {
+                "Post_Teams_Current_Rain": {
+                  "type": "ApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connection": {
+                        "name": "@parameters('$connections')['teams']['connectionId']"
+                      }
+                    },
+                    "method": "post",
+                    "path": "/v3/beta/teams/NotifyUser",
+                    "body": {
+                      "recipient": "@{first(body('Filter_RecipientId'))?['DFValue']}",
+                      "messageBody": "@{concat('🌧 Rain alert — ', first(body('Filter_LocationName'))?['DFValue'], '\n\nIt is currently raining at your home location.\n  Conditions: ', variables('wmoLabels')[string(body('Parse_Weather_Response')?['current']?['weather_code'])], '\n  Temperature: ', string(body('Parse_Weather_Response')?['current']?['temperature_2m']), '°C\n  Detected at: ', utcNow(), ' UTC')}"
+                    },
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 2,
+                      "interval": "PT30S"
+                    }
+                  },
+                  "runAfter": {}
+                },
+                "Update_CurrentRain_AlertState": {
+                  "type": "ApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connection": {
+                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                      }
+                    },
+                    "method": "patch",
+                    "path": "/datasets/@{encodeURIComponent(encodeURIComponent('https://aiwhisperer.sharepoint.com/sites/DarkFactory'))}/tables/@{encodeURIComponent(encodeURIComponent('DarkFactory-AlertState'))}/items/@{encodeURIComponent(first(body('Filter_CurrentRain_Item'))?['ID'])}",
+                    "body": {
+                      "LastSentAt": "@{utcNow()}"
+                    },
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 2,
+                      "interval": "PT30S"
+                    }
+                  },
+                  "runAfter": {
+                    "Post_Teams_Current_Rain": ["Succeeded"]
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+
+        "Check_Forecast_Rain_Suppression": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Compose_ForecastRain_Suppression_Expired')",
+                  true
+                ]
+              }
+            ]
+          },
+          "runAfter": {
+            "Parse_Weather_Response": ["Succeeded"],
+            "Compose_ForecastRain_Suppression_Expired": ["Succeeded"],
+            "Filter_RecipientId": ["Succeeded"],
+            "Filter_LocationName": ["Succeeded"]
+          },
+          "actions": {
+            "Compose_Current_Hour": {
+              "type": "Compose",
+              "inputs": "@int(formatDateTime(body('Parse_Weather_Response')?['current']?['time'], 'H'))",
+              "runAfter": {}
+            },
+            "Compose_Sliced_Hourly_Codes": {
+              "type": "Compose",
+              "inputs": "@skip(body('Parse_Weather_Response')?['hourly']?['weather_code'], outputs('Compose_Current_Hour'))",
+              "runAfter": {
+                "Compose_Current_Hour": ["Succeeded"]
+              }
+            },
+            "Filter_Forecast_Rain_Codes": {
+              "type": "Query",
+              "inputs": {
+                "from": "@outputs('Compose_Sliced_Hourly_Codes')",
+                "where": "@contains(variables('rainCodes'), item())"
+              },
+              "runAfter": {
+                "Compose_Sliced_Hourly_Codes": ["Succeeded"]
+              }
+            },
+            "Check_Forecast_Rain_Found": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@length(body('Filter_Forecast_Rain_Codes'))",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "runAfter": {
+                "Filter_Forecast_Rain_Codes": ["Succeeded"]
+              },
+              "actions": {
+                "Post_Teams_Forecast_Rain": {
+                  "type": "ApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connection": {
+                        "name": "@parameters('$connections')['teams']['connectionId']"
+                      }
+                    },
+                    "method": "post",
+                    "path": "/v3/beta/teams/NotifyUser",
+                    "body": {
+                      "recipient": "@{first(body('Filter_RecipientId'))?['DFValue']}",
+                      "messageBody": "@{concat('🌧 Rain forecast alert — ', first(body('Filter_LocationName'))?['DFValue'], '\n\nRain is forecast in the upcoming hours:\n  Conditions: ', variables('wmoLabels')[string(first(body('Filter_Forecast_Rain_Codes')))], '\n  Window: Today from ', outputs('Compose_Current_Hour'), ':00 through to end of tomorrow\n  Alert sent: ', utcNow(), ' UTC\n\nYou may want to pack an umbrella or reschedule outdoor plans.')}"
+                    },
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 2,
+                      "interval": "PT30S"
+                    }
+                  },
+                  "runAfter": {}
+                },
+                "Update_ForecastRain_AlertState": {
+                  "type": "ApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connection": {
+                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                      }
+                    },
+                    "method": "patch",
+                    "path": "/datasets/@{encodeURIComponent(encodeURIComponent('https://aiwhisperer.sharepoint.com/sites/DarkFactory'))}/tables/@{encodeURIComponent(encodeURIComponent('DarkFactory-AlertState'))}/items/@{encodeURIComponent(first(body('Filter_ForecastRain_Item'))?['ID'])}",
+                    "body": {
+                      "LastSentAt": "@{utcNow()}"
+                    },
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 2,
+                      "interval": "PT30S"
+                    }
+                  },
+                  "runAfter": {
+                    "Post_Teams_Forecast_Rain": ["Succeeded"]
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        }
+
+      }
+    },
+
+    "Catch": {
+      "type": "Scope",
+      "runAfter": {
+        "Main": ["Failed", "TimedOut", "Cancelled"]
+      },
+      "actions": {
+        "Terminate_As_Failed": {
+          "type": "Terminate",
+          "inputs": {
+            "runStatus": "Failed",
+            "runError": {
+              "code": "WorkflowError",
+              "message": "Rain alert workflow failed. Check run history for action-level details. Common causes: expired OAuth connections, Open-Meteo API timeout, SharePoint list missing."
+            }
+          },
+          "runAfter": {}
+        }
+      }
+    }
+
+  },
+  "outputs": {}
+}
