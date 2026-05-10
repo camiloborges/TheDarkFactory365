@@ -237,9 +237,9 @@ These items must be addressed before or during implementation planning. They are
 - The family has a single primary home location. Multi-location support is out of scope for v1.
 - **Open-Meteo** is the selected weather data provider (see API Options section above). No API key is required; no credentials need to be stored for the primary provider.
 - The web part makes one API call per refresh cycle regardless of how many family members have the tab open simultaneously (data is fetched client-side per session, not server-side centrally).
-- The Microsoft 365 Family subscription provides sufficient SharePoint and Teams access for this solution.
+- The Microsoft 365 Business Basic subscription (`aiwhisperer.onmicrosoft.com`) provides sufficient SharePoint and Teams access for this solution.
 - The web part is deployed to the tenant App Catalog by the administrator, who holds tenant admin rights.
-- The `DarkFactory` Teams team and `General` channel exist or will be created by the administrator before deployment. The SharePoint page tab is added manually as a setup step.
+- The `DarkFactory` Teams team and `General` channel are provisioned by Spec 003 (Tenant Infrastructure) before deployment. The SharePoint page tab is added manually as a setup step.
 - Temperature unit defaults to Celsius. This is stored as a configuration value, not hardcoded.
 - Rain alert functionality (forecast rain prediction and current rain detection) is out of scope for this spec — covered in Spec 002.
 - Historical weather data and trend charts are out of scope for v1.
