@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "dark-factory-weather-client-side-solution",
+    "id": "d4117e61-3a0f-4b9c-a3c5-9e7f2a1b8c6d",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "DarkFactory",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.22.2"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Dark Factory Weather Web Part"
+      },
+      "longDescription": {
+        "default": "Displays current weather conditions and forecast from Open-Meteo for the configured home location."
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "Application Extension - Deployment of resources",
+        "description": "Deploys static assets used by Dark Factory Weather Web Part",
+        "id": "e8f0e2d1-4a3b-4c9e-8f7a-2d5b1c0e3f4a",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/dark-factory-weather.sppkg"
+  }
+}

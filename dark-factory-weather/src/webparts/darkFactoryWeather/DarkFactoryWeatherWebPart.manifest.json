@@ -1,0 +1,23 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "497f8890-2099-4901-99ca-2fd4f64e4e4e",
+  "alias": "DarkFactoryWeatherWebPart",
+  "componentType": "WebPart",
+  "version": "*",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab"],
+  "supportsThemeVariants": false,
+  "preconfiguredEntries": [
+    {
+      "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+      "group": { "default": "Other" },
+      "title": { "default": "Dark Factory Weather" },
+      "description": { "default": "Current conditions and forecast for your home location" },
+      "officeFabricIconFontName": "Sunny",
+      "properties": {
+        "configListName": "DarkFactory-Settings"
+      }
+    }
+  ]
+}
