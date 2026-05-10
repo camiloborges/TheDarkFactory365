@@ -178,8 +178,16 @@ Check if the suppression window is active: open `DarkFactory-AlertState` in Shar
 **Teams message not received but run shows Succeeded**
 The message may have been delivered to the wrong chat. Check that `Alert.RecipientId` in DarkFactory-Settings matches your exact Teams UPN. Also check Teams notification settings — "Other" or "Meeting chat" messages may be muted.
 
+**Important**: The Teams managed connector "Post a message (V3)" action uses user-delegated OAuth. This means the connection can only send messages *as the authorising admin account*. The `Alert.RecipientId` setting is used by the connector action but the actual delivery is constrained to 1:1 conversations available to the authorising account. After first deployment, verify the action path (`/v3/beta/teams/NotifyUser`) is available for your region by checking the Logic App run history on the first rain trigger. If you see a `404` or `BadRequest` on the Teams action, open the Logic App Designer and re-add the Teams action using the graphical editor — it will auto-select the correct endpoint path for your region.
+
+**OAuth connection expiry (important — silent failure risk)**
+The SharePoint and Teams connections use OAuth refresh tokens that expire after **90 days of inactivity** or immediately if the admin account's password or MFA method changes. When expired, every Logic App run will silently fail with `401 Unauthorized`. To protect against this:
+1. Set up an Azure Monitor alert rule on Logic App run failures: Azure portal → Monitor → Alerts → Create → Signal: "Logic App run failed"
+2. Set the alert action to email the administrator
+3. Re-authorise connections in the Logic App Designer whenever you receive a failure alert
+
 **Logic App charges higher than expected**
-Enable the Logic Apps diagnostic logs in Azure Monitor to see per-action costs. The most expensive actions are the Teams and SharePoint managed connector calls (~$0.000125 each). At 5-minute polling with ~6 managed connector actions per run: 288 runs/day × 6 actions × $0.000125 = ~$0.22/day maximum.
+Enable the Logic Apps diagnostic logs in Azure Monitor to see per-action costs. The most expensive actions are the Teams and SharePoint managed connector calls (~$0.000125 each). On a typical non-rain day only 2 SharePoint reads fire as managed connector actions: `288 runs/day × 2 actions × $0.000125 = ~$0.07/day`. On a rain day when both alerts fire (once each, then suppressed): approximately `288 × 2 + 2 × 4 = 584 managed actions × $0.000125 = ~$0.07/day`. The monthly total remains well within the $0.50–$2.00 range.
 
 ---
 

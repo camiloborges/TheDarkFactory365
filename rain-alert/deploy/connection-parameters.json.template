@@ -1,0 +1,18 @@
+{
+  "$connections": {
+    "value": {
+      "sharepointonline": {
+        "connectionId": "/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Web/connections/connection-sharepoint-darkfactory",
+        "connectionName": "connection-sharepoint-darkfactory",
+        "connectionRuntimeUrl": "https://{SHAREPOINT_RUNTIME_URL}",
+        "id": "/subscriptions/{SUBSCRIPTION_ID}/providers/Microsoft.Web/locations/{LOCATION}/managedApis/sharepointonline"
+      },
+      "teams": {
+        "connectionId": "/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Web/connections/connection-teams-darkfactory",
+        "connectionName": "connection-teams-darkfactory",
+        "connectionRuntimeUrl": "https://{TEAMS_RUNTIME_URL}",
+        "id": "/subscriptions/{SUBSCRIPTION_ID}/providers/Microsoft.Web/locations/{LOCATION}/managedApis/teams"
+      }
+    }
+  }
+}

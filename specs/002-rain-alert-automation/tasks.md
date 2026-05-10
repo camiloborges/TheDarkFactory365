@@ -10,11 +10,11 @@
 
 **Purpose**: Project scaffold, ARM templates, and deployment scripts — no Azure resources yet.
 
-- [ ] T001 Create `rain-alert/` directory structure with `connections/`, `deploy/` subdirectories per plan.md project structure
-- [ ] T002 [P] Write `rain-alert/connections/sharepoint-connection.json` ARM template for SharePoint OAuth managed connection (resource type: `Microsoft.Web/connections`, API: `sharepointonline`)
-- [ ] T003 [P] Write `rain-alert/connections/teams-connection.json` ARM template for Teams OAuth managed connection (resource type: `Microsoft.Web/connections`, API: `teams`)
-- [ ] T004 [P] Write `rain-alert/deploy/Deploy-AlertInfrastructure.ps1`: `az group create --name rg-darkfactory`, `az logic workflow create --name la-darkfactory-rain-alert` (Consumption plan, australiaeast), deploy connection ARM templates via `az deployment group create`
-- [ ] T005 [P] Write `rain-alert/deploy/Invoke-AlertSeedData.ps1`: idempotent PnP PowerShell script to (1) create `DarkFactory-AlertState` list + `LastSentAt` DateTime column + seed `ForecastRain` / `CurrentRain` items; (2) add `Alert.*` rows to `DarkFactory-Settings` (skip-if-exists per Spec 003 pattern) — per data-model.md seed tables
+- [X] T001 Create `rain-alert/` directory structure with `connections/`, `deploy/` subdirectories per plan.md project structure
+- [X] T002 [P] Write `rain-alert/connections/sharepoint-connection.json` ARM template for SharePoint OAuth managed connection (resource type: `Microsoft.Web/connections`, API: `sharepointonline`)
+- [X] T003 [P] Write `rain-alert/connections/teams-connection.json` ARM template for Teams OAuth managed connection (resource type: `Microsoft.Web/connections`, API: `teams`)
+- [X] T004 [P] Write `rain-alert/deploy/Deploy-AlertInfrastructure.ps1`: `az group create --name rg-darkfactory`, `az logic workflow create --name la-darkfactory-rain-alert` (Consumption plan, australiaeast), deploy connection ARM templates via `az deployment group create`
+- [X] T005 [P] Write `rain-alert/deploy/Invoke-AlertSeedData.ps1`: idempotent PnP PowerShell script to (1) create `DarkFactory-AlertState` list + `LastSentAt` DateTime column + seed `ForecastRain` / `CurrentRain` items; (2) add `Alert.*` rows to `DarkFactory-Settings` (skip-if-exists per Spec 003 pattern) — per data-model.md seed tables
 
 ---
 
@@ -27,8 +27,8 @@
 - [ ] T006 Run `rain-alert/deploy/Deploy-AlertInfrastructure.ps1` — creates `rg-darkfactory` resource group and `la-darkfactory-rain-alert` Logic App (Consumption plan) with empty workflow; verify in Azure portal
 - [ ] T007 Authorise SharePoint and Teams OAuth connections in Azure Logic App designer (admin Camilo Borges signs in to each connection once); confirm both connections show as "Connected" in portal — per quickstart.md
 - [ ] T008 Run `rain-alert/deploy/Invoke-AlertSeedData.ps1` — verify `DarkFactory-AlertState` list exists with `ForecastRain` and `CurrentRain` items; verify all four `Alert.*` rows present in `DarkFactory-Settings`
-- [ ] T009 Write `rain-alert/logic-app-definition.json` workflow scaffold: Recurrence trigger (every 5 minutes), `Initialize Variable` action for `rainCodes` array (`[51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99]`), `Initialize Variable` action for `wmoLabels` object (WMO code → label map from data-model.md), `HTTP GET` Open-Meteo action with parameters from data-model.md D-006, `Parse JSON` action on HTTP response
-- [ ] T010 Add SharePoint reads to `rain-alert/logic-app-definition.json`: `Get items` action for `DarkFactory-Settings` (OData filter: `startswith(Title,'Weather.') or startswith(Title,'Alert.')`); `Get items` action for `DarkFactory-AlertState` (no filter); deploy updated workflow and confirm first run succeeds with HTTP 200 from Open-Meteo
+- [X] T009 Write `rain-alert/logic-app-definition.json` workflow scaffold: Recurrence trigger (every 5 minutes), `Initialize Variable` action for `rainCodes` array (`[51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99]`), `Initialize Variable` action for `wmoLabels` object (WMO code → label map from data-model.md), `HTTP GET` Open-Meteo action with parameters from data-model.md D-006, `Parse JSON` action on HTTP response
+- [X] T010 Add SharePoint reads to `rain-alert/logic-app-definition.json`: `Get items` action for `DarkFactory-Settings` (OData filter: `startswith(Title,'Weather.') or startswith(Title,'Alert.')`); `Get items` action for `DarkFactory-AlertState` (no filter); deploy updated workflow and confirm first run succeeds with HTTP 200 from Open-Meteo
 
 **Checkpoint**: Logic App runs every 5 minutes, reads Open-Meteo, reads SharePoint config and state, logs run history. No alert logic yet.
 
@@ -40,10 +40,10 @@
 
 **Independent Test**: Set `Alert.CurrentRainSuppressionHours = 0` in DarkFactory-Settings. Trigger the Logic App manually twice. Confirm Teams private message received on first trigger. Confirm no Teams message on second trigger within 1 minute (suppress). Restore suppression to 1 hour.
 
-- [ ] T011 [US2] Add current rain suppression check to current rain branch in `rain-alert/logic-app-definition.json`: extract `CurrentRain` item's `LastSentAt` from AlertState response; null-safe suppression condition: `if(equals(lastSentAt,null),true,less(addHours(lastSentAt,int(suppressionHours)),utcNow()))` — per data-model.md null handling note
-- [ ] T012 [US2] Add current weather code condition: `contains(variables('rainCodes'), int(body('Parse_Weather')['current']['weather_code']))` — evaluates WMO code from Open-Meteo current response against rainCodes variable
-- [ ] T013 [US2] Add Teams "Post a message (V3)" action (1:1 chat, recipient = `Alert.RecipientId` setting, message = current rain format from data-model.md Teams Message Formats) inside the True branch of the current rain condition
-- [ ] T014 [US2] Add SharePoint "Update item" action: site = DarkFactory, list = `DarkFactory-AlertState`, item ID = CurrentRain item ID, `LastSentAt` = `@{utcNow()}` — executes only after Teams message succeeds
+- [X] T011 [US2] Add current rain suppression check to current rain branch in `rain-alert/logic-app-definition.json`: extract `CurrentRain` item's `LastSentAt` from AlertState response; null-safe suppression condition: `if(equals(lastSentAt,null),true,less(addHours(lastSentAt,int(suppressionHours)),utcNow()))` — per data-model.md null handling note
+- [X] T012 [US2] Add current weather code condition: `contains(variables('rainCodes'), int(body('Parse_Weather')['current']['weather_code']))` — evaluates WMO code from Open-Meteo current response against rainCodes variable
+- [X] T013 [US2] Add Teams "Post a message (V3)" action (1:1 chat, recipient = `Alert.RecipientId` setting, message = current rain format from data-model.md Teams Message Formats) inside the True branch of the current rain condition
+- [X] T014 [US2] Add SharePoint "Update item" action: site = DarkFactory, list = `DarkFactory-AlertState`, item ID = CurrentRain item ID, `LastSentAt` = `@{utcNow()}` — executes only after Teams message succeeds
 - [ ] T015 [US2] Deploy updated `logic-app-definition.json`; manually trigger Logic App from Azure portal; verify run history shows all actions Succeeded; verify Teams private message received; wait 1 minute, trigger again, verify no second Teams message (suppression active)
 
 **Checkpoint**: Current rain alerts delivered and suppressed correctly. Full pipeline validated.
@@ -56,12 +56,12 @@
 
 **Independent Test**: On a day when rain is forecast (or by temporarily setting WMO codes to include code 0 = clear sky), trigger Logic App manually with `Alert.ForecastSuppressionHours = 0`. Confirm forecast Teams message received. Restore suppression to 3 hours and trigger again — confirm no second message within 3 hours.
 
-- [ ] T016 [US1] Add forecast rain suppression check in a parallel branch to `rain-alert/logic-app-definition.json`: extract `ForecastRain` item's `LastSentAt` from AlertState response; same null-safe suppression condition using `Alert.ForecastSuppressionHours` value
-- [ ] T017 [US1] Add current local hour extraction: `Compose` action to parse hour from `body('Parse_Weather')['current']['time']` using `int(formatDateTime(outputs('Parse_Weather')['current']['time'], 'H'))`; `Compose` action to slice hourly codes: `skip(body('Parse_Weather')['hourly']['weather_code'], outputs('Get_Current_Hour'))`
-- [ ] T018 [US1] Add `Filter array` action (Logic Apps built-in, no charge) on sliced hourly codes: filter expression `contains(variables('rainCodes'), int(item()))` — returns array of rain-code entries from today's remaining + tomorrow's forecast hours; no For Each loop (per consultant Finding 3)
-- [ ] T019 [US1] Add condition: `length(body('Filter_Forecast_Codes')) > 0`; on True: set variable `forecastRainCode` = `first(body('Filter_Forecast_Codes'))`
-- [ ] T020 [US1] Add Teams "Post a message (V3)" action for forecast rain alert (forecast message format from data-model.md, including forecastRainCode label from wmoLabels variable) inside the True branch
-- [ ] T021 [US1] Add SharePoint "Update item" action: DarkFactory-AlertState → ForecastRain → `LastSentAt = @{utcNow()}`; deploy updated `logic-app-definition.json`; verify both parallel branches appear in run history; confirm forecast and current rain branches operate independently
+- [X] T016 [US1] Add forecast rain suppression check in a parallel branch to `rain-alert/logic-app-definition.json`: extract `ForecastRain` item's `LastSentAt` from AlertState response; same null-safe suppression condition using `Alert.ForecastSuppressionHours` value
+- [X] T017 [US1] Add current local hour extraction: `Compose` action to parse hour from `body('Parse_Weather')['current']['time']` using `int(formatDateTime(outputs('Parse_Weather')['current']['time'], 'H'))`; `Compose` action to slice hourly codes: `skip(body('Parse_Weather')['hourly']['weather_code'], outputs('Get_Current_Hour'))`
+- [X] T018 [US1] Add `Filter array` action (Logic Apps built-in, no charge) on sliced hourly codes: filter expression `contains(variables('rainCodes'), int(item()))` — returns array of rain-code entries from today's remaining + tomorrow's forecast hours; no For Each loop (per consultant Finding 3)
+- [X] T019 [US1] Add condition: `length(body('Filter_Forecast_Codes')) > 0`; on True: set variable `forecastRainCode` = `first(body('Filter_Forecast_Codes'))`
+- [X] T020 [US1] Add Teams "Post a message (V3)" action for forecast rain alert (forecast message format from data-model.md, including forecastRainCode label from wmoLabels variable) inside the True branch
+- [X] T021 [US1] Add SharePoint "Update item" action: DarkFactory-AlertState → ForecastRain → `LastSentAt = @{utcNow()}`; deploy updated `logic-app-definition.json`; verify both parallel branches appear in run history; confirm forecast and current rain branches operate independently
 
 **Checkpoint**: Both alert types work end-to-end. Forecast and current rain branches run in parallel. Each has independent suppression state.
 
@@ -73,9 +73,9 @@
 
 **Independent Test**: Temporarily configure an invalid Open-Meteo URL, trigger the Logic App, confirm the run shows Failed in history but no crash or exception escapes. Restore correct URL, trigger again, confirm Succeeded — no manual intervention required between the two runs.
 
-- [ ] T022 [US3] Wrap all post-trigger actions in a `Scope` action named `Main` in `rain-alert/logic-app-definition.json`; add `Catch` scope (Run After: Main with statuses `Failed`, `TimedOut`) — Catch body logs run as failed via a `Terminate` action with status `Failed` and descriptive message
-- [ ] T023 [US3] Set HTTP Open-Meteo action `retryPolicy` in workflow JSON: `type: exponential`, `count: 3`, `interval: PT20S`, `maximumInterval: PT600S` — per data-model.md D-010
-- [ ] T024 [US3] Set SharePoint and Teams connector actions `retryPolicy`: `type: fixed`, `count: 2`, `interval: PT30S`
+- [X] T022 [US3] Wrap all post-trigger actions in a `Scope` action named `Main` in `rain-alert/logic-app-definition.json`; add `Catch` scope (Run After: Main with statuses `Failed`, `TimedOut`) — Catch body logs run as failed via a `Terminate` action with status `Failed` and descriptive message
+- [X] T023 [US3] Set HTTP Open-Meteo action `retryPolicy` in workflow JSON: `type: exponential`, `count: 3`, `interval: PT20S`, `maximumInterval: PT600S` — per data-model.md D-010
+- [X] T024 [US3] Set SharePoint and Teams connector actions `retryPolicy`: `type: fixed`, `count: 2`, `interval: PT30S`
 - [ ] T025 [US3] Verify run history retention in Azure portal (Logic Apps Consumption default = 90 days; confirm exceeds FR-011 requirement of 30 days); perform recovery test per independent test above; confirm SC-005 met (recovery within one polling cycle ≤ 5 minutes)
 
 **Checkpoint**: All three user stories functional. Error handling confirmed. System self-recovers without manual intervention.
@@ -87,8 +87,8 @@
 **Purpose**: End-to-end suppression test, documentation verification, final clean-up.
 
 - [ ] T026 End-to-end suppression window test: set `Alert.CurrentRainSuppressionHours = 0`, trigger twice in 60 seconds — confirm both send alerts; restore to `1`, trigger twice — confirm second is suppressed; repeat for `Alert.ForecastSuppressionHours` (set to `0`, trigger twice, both send; restore to `3`)
-- [ ] T027 Verify `specs/002-rain-alert-automation/quickstart.md` deployment steps match final script parameter names, Logic App resource names, and portal steps; update any discrepancies
-- [ ] T028 [P] Confirm `rain-alert/logic-app-definition.json` is clean and committed with inline comments for each action group; verify run history shows 7 consecutive Succeeded runs in Azure portal
+- [X] T027 Verify `specs/002-rain-alert-automation/quickstart.md` deployment steps match final script parameter names, Logic App resource names, and portal steps; update any discrepancies
+- [X] T028 [P] Confirm `rain-alert/logic-app-definition.json` is clean and committed with inline comments for each action group; verify run history shows 7 consecutive Succeeded runs in Azure portal
 
 ---
 
