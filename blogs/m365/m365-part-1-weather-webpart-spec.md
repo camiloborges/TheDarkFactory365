@@ -3,288 +3,278 @@
 _Part 1 of the M365 series_
 
 **TL;DR**  
-Before a single TypeScript file is created, we write the full specification for our Office 365 Weather Web Part using the GitHub Spec Kit. This post walks through every artifact: the research decisions, the surface matrix, the acceptance criteria in GIVEN/WHEN/THEN format, the architecture constraints, and the permission manifest. When we're done, a developer can pick this up and build the right thing without asking a single clarifying question.
+Before a single TypeScript file is created, we write the full specification for the DarkFactory weather web part using the Claude Code Spec Kit. This post walks through every artifact: the research decisions, the surface matrix, the acceptance criteria in GIVEN/WHEN/THEN format, the architecture constraints, and the permission manifest. When we're done, the implementation has no open questions.
+
+---
+
+> **A note on the tooling**: Part 0 described a GitHub-Issues-based approach to SDD. When we actually built this, we went in a different direction — spec files in the repository, driven by AI-assisted skills in Claude Code. The reasons for that choice, and what the workflow actually looks like, are in [Part 2](./m365-part-2-ai-spec-kit-quality-gates.md). This post shows the output: the specification that the workflow produced.
 
 ---
 
 ## 1. The Specification Header
 
-Every GitHub Spec Kit specification starts with a header issue that acts as the anchor for all requirements. In GitHub, this becomes a pinned issue in the repository tagged `spec:approved`.
+Every Spec Kit feature starts with a `spec.md` file that anchors all requirements. The header establishes scope, priority, and the decisions already made before requirements are written.
 
 ---
 
-**GitHub Issue: `[SPEC] Weather Web Part — Master Specification`**  
-**Labels:** `spec:approved`, `surface:sharepoint`, `surface:teams`, `risk:high`  
-**Milestone:** `v1.0 — Core Weather Display`
+**Feature**: `001-weather-system`  
+**Status**: Approved  
+**Scope note**: Covers the central configuration store and weather display web part only. Rain alert automation is Spec 002.  
+**Teams deployment target**: Team `DarkFactory`, channel `General`
 
 ### Summary
 
-A modern SharePoint Framework (SPFx) web part that displays current weather conditions and a short forecast for a configurable location. The solution must work as a SharePoint page web part and as a Teams personal tab. It must not store user data or expose tenant credentials to the client.
+A dark-themed SharePoint Framework (SPFx) web part that displays current weather conditions and a period-based forecast for the home location. The solution runs as a Teams channel tab pinned to the DarkFactory General channel. All configuration — home coordinates, timezone, API endpoint — comes from the `DarkFactory-Settings` SharePoint list provisioned by Spec 003. Nothing is hardcoded; nothing is in the web part property pane.
 
 ### Goals
 
-- Display current weather (temperature, conditions, wind, humidity) for a user-configured location
-- Display a 5-day forecast summary
-- Support metric and imperial units
-- Integrate with the M365 user's locale for date/time formatting
-- Function on SharePoint modern pages and Microsoft Teams personal tabs
+- Display current weather conditions (temperature, feels-like, humidity, wind, UV index, sunrise/sunset)
+- Display today's remaining forecast in grouped periods (Morning / Afternoon / Evening / Tonight)
+- Display a two-day outlook beyond today
+- Read all configuration from the central `DarkFactory-Settings` SharePoint list
+- Present the Dark Factory visual identity: dark background, electric accent colour, WCAG 2.1 AA contrast throughout
 
 ### Non-Goals (explicitly out of scope for v1.0)
 
 - Viva Connections dashboard card
-- Push notifications or weather alerts
+- Push notifications or weather alerts (that is Spec 002)
 - Multi-location comparison
 - Historical weather data
-- Mobile native app integration
+- Teams personal app tab (channel tab only)
+- Property pane configuration (all config is administrator-managed in the SharePoint list)
 
 ---
 
 ## 2. The Surface Matrix
 
-Before writing acceptance criteria, we enumerate every surface and its constraints. This is the M365-specific step that most specs skip.
+Before writing acceptance criteria, we enumerate every surface and its constraints. In M365, this step catches the failures that kill projects in production — not in development.
 
-| Surface | SPFx Host | Auth Context | Size Constraint | CSP Constraints |
+| Surface | SPFx Host | Auth context | Size constraint | CSP constraints |
 |---|---|---|---|---|
-| SharePoint modern page | `SharePointWebPart` | SharePoint user token | Configurable via zone | Tenant CSP policy |
-| Teams personal tab | `TeamsTab` | Teams SSO (AAD) | 100% viewport height | Teams CSP — no inline scripts |
-| Teams channel tab | Out of scope v1.0 | — | — | — |
+| Teams channel tab (DarkFactory General) | `TeamsTab` | Teams context + SharePoint delegated | Full tab viewport | Teams CSP — no inline scripts |
+| SharePoint modern page (fallback) | `SharePointWebPart` | SharePoint user token | Configurable zone width | Tenant CSP policy |
 | Viva Connections | Out of scope v1.0 | — | — | — |
 
-**Decision record:** Teams channel tab excluded from v1.0 because the configuration UX (tab configuration dialog) requires a separate spec and adds significant surface area. Channel tab support deferred to v1.1.
+**Decision record:** Teams personal tab excluded — personal tabs require an app manifest and separate Teams App registration outside the scope of v1.0. The web part is deployed as a channel tab in the DarkFactory team, which uses the same native SharePoint tab type and requires no additional app registration.
+
+**CSP decision record:** SharePoint Online CSP enforcement went live in March 2026. The web part makes client-side fetch requests to `api.open-meteo.com`. That domain must be added to the tenant CSP allowlist via `Add-SPOContentSecurityPolicy` before the web part can make API calls. This is handled by Spec 003 (tenant infrastructure provisioning) — it is not the web part's responsibility.
 
 ---
 
 ## 3. Research: External Weather API Selection
 
-**GitHub Discussion: `[RESEARCH] Weather API selection for SPFx web part`**  
-**Status:** Decision recorded. No further discussion needed.
+This decision was resolved in `research.md` before planning began. Every unknown that could block implementation was closed before a single task was written.
 
 ### Options Evaluated
 
 | Option | Pros | Cons | Decision |
 |---|---|---|---|
-| OpenWeatherMap Free Tier | No auth required for basic call, generous free quota | HTTP only on free tier (need HTTPS upgrade), key must be stored somewhere | **Selected** |
-| MSN Weather API (via Graph) | No external dependency, M365-native | Undocumented, unsupported, can be removed by Microsoft at any time | Rejected |
-| Weather.gov API | Free, no key needed, US-only | US only — non-starter for global tenants | Rejected |
-| Azure Maps Weather | First-party Azure service, SLA-backed | Paid, adds Azure billing dependency | Deferred to enterprise variant |
+| **Open-Meteo** | Free, no API key, no account, full CORS, returns all required data in one call | Less name recognition | **Selected** |
+| OpenWeatherMap Free Tier | Widely known | Requires API key (storage/security concern), HTTP only on free tier | Rejected |
+| MSN Weather (via Graph) | M365-native, no external dependency | Undocumented, unsupported, has broken without notice twice in 18 months — explicit constitution violation | Rejected |
+| Azure Maps Weather | First-party Azure, SLA-backed | Paid, adds Azure billing for something Open-Meteo covers free | Deferred to enterprise variant |
+| Weather.gov | Free, no key | US only | Rejected |
 
-### Selected: OpenWeatherMap Current Weather + Forecast APIs
+### Selected: Open-Meteo
 
-- **Current weather endpoint:** `https://api.openweathermap.org/data/2.5/weather`
-- **5-day forecast endpoint:** `https://api.openweathermap.org/data/2.5/forecast`
-- **API key storage:** SPFx tenant-wide property (not in web part properties — this prevents the key from appearing in page source)
-- **CSP implication:** Tenant administrator must add `api.openweathermap.org` to the tenant CSP allowlist
+- **Endpoint:** `https://api.open-meteo.com/v1/forecast`
+- **API key:** None required — zero friction for household use
+- **Single API call** returns: current conditions, hourly forecast, daily forecast, UV index, sunrise/sunset, precipitation probability
+- **Fair use limit:** ~10,000 req/day; 5-minute polling from one household = 288 req/day
+- **CORS:** Full (`Access-Control-Allow-Origin: *`) — direct browser fetch from SPFx works without a proxy
 
-**Rejection rationale for MSN Weather:** The MSN Weather endpoint is not part of any published Microsoft API contract. It has broken without notice twice in the past 18 months across the community. Building a production web part on an undocumented endpoint is an explicit violation of our Constitution: _REJECT: No dependency on undocumented or unsupported vendor APIs._
+**Rejection rationale for MSN Weather:** Not part of any published Microsoft API contract. A production solution that depends on an undocumented endpoint violates Principle II of the project constitution: _All solutions MUST use official, supported Microsoft 365 extension points only._
+
+**No API key consequence:** The `DarkFactory-Settings` list stores the API base URL (`Weather.ApiBaseUrl`) so that it can be overridden for staging or testing. But there is no credential to store, rotate, or protect.
 
 ---
 
-## 4. The Constitution (Non-Negotiable Constraints)
+## 4. The Constitution Gates
 
-These are ACCEPT/REJECT gates. Any implementation decision that violates a REJECT is blocked — no exceptions without a spec amendment.
+These are ACCEPT/REJECT gates. Any implementation decision that hits a REJECT is blocked without a spec amendment.
 
 ```
-REJECT: API key stored in web part property pane (visible in page source)
-REJECT: Direct user location access (Geolocation API) without explicit opt-in prompt
+REJECT: Location hardcoded in the web part
+REJECT: API endpoint hardcoded in the web part
 REJECT: Inline <script> tags or eval() — fails Teams CSP
-REJECT: HTTP (non-TLS) API calls in any surface
-REJECT: External API calls made on every render without caching
-REJECT: Hardcoded locale — must use SPFx context.pageContext.cultureInfo
+REJECT: External API calls on every render without caching
+REJECT: Any colour with < 4.5:1 contrast ratio against the background (WCAG 2.1 AA)
+REJECT: Dependency on any undocumented Microsoft API
 
-ACCEPT: API key stored in SharePoint tenant-wide property bag (server-side config)
-ACCEPT: User-configurable location stored in web part property pane
+ACCEPT: All configuration read from DarkFactory-Settings SharePoint list at load time
 ACCEPT: SPFx HttpClient for all external requests (respects tenant proxy/CSP)
-ACCEPT: 30-minute client-side cache using sessionStorage keyed by location+units
-ACCEPT: Graceful degradation — show error state when API is unreachable
+ACCEPT: 5-minute auto-refresh interval (configurable via DarkFactory-Settings)
+ACCEPT: Last-known-data fallback when API is unreachable, with visible staleness warning
+ACCEPT: Fluent UI v8 as the structural foundation; Dark Factory SCSS tokens as overlay
+ACCEPT: WCAG 2.1 AA verified for every colour pair before implementation begins
 ```
 
 ---
 
 ## 5. Acceptance Criteria
 
-Each requirement below maps to a GitHub Issue. The issue number is the canonical reference in pull requests.
+Requirements in GIVEN/WHEN/THEN format. These are the direct inputs to test cases — each scenario becomes a unit or integration test assertion.
 
 ---
 
-### REQ-001: Display Current Weather
+### REQ-001: Current Weather Display
 
-**GitHub Issue:** `[REQ-001] Display current weather for configured location`  
-**Labels:** `spec:approved`, `surface:sharepoint`, `surface:teams`  
-**Milestone:** `v1.0 — Core Weather Display`
-
-**GIVEN** the web part is configured with a valid city name  
-**AND** the OpenWeatherMap API is reachable  
-**WHEN** the page containing the web part loads  
+**GIVEN** the web part is loaded on the Teams tab  
+**AND** the home location is configured in `DarkFactory-Settings`  
+**AND** the Open-Meteo API is reachable  
+**WHEN** the page renders  
 **THEN** the web part displays:
-- City name and country code
-- Current temperature in the configured unit (°C or °F)
-- Weather condition description (e.g., "Partly cloudy")
-- Weather condition icon (from OpenWeatherMap icon set)
+- Current temperature (°C)
 - Feels-like temperature
-- Humidity percentage
+- Weather condition label (from WMO weather code interpretation)
 - Wind speed and direction
+- Humidity percentage
+- UV index
+- Today's sunrise and sunset times
 
-**GIVEN** the web part is configured with a valid city name  
-**AND** the OpenWeatherMap API returns a 4xx or 5xx error  
-**WHEN** the page loads  
-**THEN** the web part displays a user-friendly error message  
-**AND** does not display a broken layout or JavaScript error in the console
-
----
-
-### REQ-002: Display 5-Day Forecast
-
-**GitHub Issue:** `[REQ-002] Display 5-day forecast summary`  
-**Labels:** `spec:approved`, `surface:sharepoint`, `surface:teams`  
-**Milestone:** `v1.0 — Core Weather Display`
-
-**GIVEN** the web part is configured with a valid city name  
-**AND** the OpenWeatherMap API is reachable  
-**WHEN** the page loads  
-**THEN** the web part displays 5 daily forecast entries, each showing:
-- Day label (formatted using the user's M365 locale)
-- High and low temperature
-- Dominant weather condition icon
-
-**GIVEN** the forecast API returns data for a city with a different UTC offset than the user  
+**GIVEN** the Open-Meteo API returns an error or is unreachable  
 **WHEN** the page renders  
-**THEN** forecast days are grouped by the **location's local date**, not the user's local date
+**THEN** the web part displays the last known data  
+**AND** shows a visible "Data may be outdated — last updated [timestamp]" banner  
+**AND** does not display a broken layout or raw error text
+
+**GIVEN** required configuration keys are missing from `DarkFactory-Settings`  
+**WHEN** the web part loads  
+**THEN** it displays a friendly setup guidance message explaining what is missing  
+**AND** does not show a JavaScript error or broken layout
 
 ---
 
-### REQ-003: Location Configuration
+### REQ-002: Today's Remaining Forecast
 
-**GitHub Issue:** `[REQ-003] Property pane location configuration`  
-**Labels:** `spec:approved`, `surface:sharepoint`  
-**Milestone:** `v1.0 — Core Weather Display`
+**GIVEN** the web part is loaded at any time of day  
+**WHEN** the forecast section renders  
+**THEN** it shows only the grouped periods that have not yet passed:
+- Morning (06:00–11:59)
+- Afternoon (12:00–17:59)
+- Evening (18:00–20:59)
+- Tonight (21:00–05:59)
 
-**GIVEN** a page author opens the web part property pane  
-**WHEN** they type a city name in the Location field  
-**THEN** the web part preview updates with weather for that city within 3 seconds  
-**AND** the location is saved to web part properties on pane close
+**GIVEN** the web part is loaded at 20:30 (Evening is current)  
+**WHEN** the forecast section renders  
+**THEN** Morning and Afternoon are not shown — only Evening and Tonight are visible
 
-**GIVEN** a page author enters a city name that does not resolve in the OpenWeatherMap geocoding API  
-**WHEN** they close the property pane  
-**THEN** the web part displays a "Location not found" message  
-**AND** the invalid location is **not** saved to web part properties (previous valid location is preserved)
-
-**GIVEN** a page author selects metric or imperial in the Units dropdown  
-**WHEN** the page renders  
-**THEN** all temperatures, wind speeds, and distances use the selected unit system  
-**AND** the unit preference is saved per web part instance (not tenant-wide)
-
----
-
-### REQ-004: API Key Configuration
-
-**GitHub Issue:** `[REQ-004] Tenant-wide API key management`  
-**Labels:** `spec:approved`, `surface:sharepoint`, `risk:high`  
-**Milestone:** `v1.0 — Core Weather Display`
-
-**GIVEN** a SharePoint administrator has stored the OpenWeatherMap API key in the tenant property bag key `WeatherWebPartApiKey`  
-**WHEN** the web part initializes  
-**THEN** it reads the API key from the tenant property bag via the SharePoint REST API  
-**AND** the API key is never written to the DOM, window object, or client-accessible storage
-
-**GIVEN** no API key is present in the tenant property bag  
+**GIVEN** it is after 22:00 with no remaining periods today  
 **WHEN** the web part renders  
-**THEN** it displays a clear message to the page author (not to end users): "API key not configured. Contact your SharePoint administrator."  
-**AND** this message is only visible to users with page edit permissions
+**THEN** the today-remaining section is hidden gracefully (not blank, not broken)
+
+**GIVEN** a forecast period includes rain  
+**WHEN** the web part renders  
+**THEN** the period is visually distinguished with a rain indicator and the accent colour shifts from cyan to blue
 
 ---
 
-### REQ-005: Caching
+### REQ-003: Two-Day Outlook
 
-**GitHub Issue:** `[REQ-005] 30-minute client-side weather cache`  
-**Labels:** `spec:approved`, `surface:sharepoint`, `surface:teams`  
-**Milestone:** `v1.0 — Core Weather Display`
-
-**GIVEN** the web part has fetched weather data for a given location and units combination  
-**WHEN** the same web part instance renders again within 30 minutes  
-**THEN** it uses the cached response and does not call the OpenWeatherMap API  
-
-**GIVEN** a user navigates away from the page and returns within 30 minutes  
-**WHEN** the web part renders  
-**THEN** it uses sessionStorage-cached data if the cache key matches `weather_{location}_{units}`
-
-**GIVEN** 30 minutes have elapsed since the last API call  
-**WHEN** the web part renders  
-**THEN** it makes a fresh API call and updates the cache
+**GIVEN** the web part is loaded  
+**WHEN** viewing the daily forecast section  
+**THEN** it displays two calendar days beyond today, each showing:
+- Day name formatted in the user's locale
+- High temperature
+- Low temperature
+- Dominant weather condition
 
 ---
 
-### REQ-006: Teams Tab Compatibility
+### REQ-004: Configuration from SharePoint List
 
-**GitHub Issue:** `[REQ-006] Teams personal tab surface support`  
-**Labels:** `spec:approved`, `surface:teams`, `risk:high`  
-**Milestone:** `v1.0 — Core Weather Display`
+**GIVEN** the administrator has populated the `DarkFactory-Settings` list with `Weather.*` keys  
+**WHEN** the web part initialises  
+**THEN** it reads `Weather.Latitude`, `Weather.Longitude`, `Weather.Timezone`, `Weather.ApiBaseUrl`, `Weather.TemperatureUnit`, and `Weather.RefreshIntervalMinutes` from the list  
+**AND** none of these values are hardcoded in the web part bundle
 
-**GIVEN** the web part is added to a Teams personal app as a tab  
-**WHEN** the tab loads  
-**THEN** the web part renders without JavaScript errors  
-**AND** authentication uses the Teams SSO flow (not cookie-based SharePoint auth)  
-**AND** the layout fills the available tab viewport without horizontal scrollbars
+**GIVEN** the administrator updates `Weather.Latitude` in the `DarkFactory-Settings` list  
+**WHEN** the web part next loads or auto-refreshes  
+**THEN** it uses the updated value without any code change or redeployment
 
-**GIVEN** the Teams client is in dark theme  
-**WHEN** the tab loads  
-**THEN** the web part applies Fluent UI dark theme tokens  
-**AND** text contrast ratios meet WCAG 2.1 AA requirements
+**GIVEN** `Weather.RefreshIntervalMinutes` is set to `5`  
+**WHEN** the web part has been open for 5 minutes  
+**THEN** it automatically fetches fresh weather data without any user action
+
+---
+
+### REQ-005: Auto-Refresh and Caching
+
+**GIVEN** the web part has fetched weather data  
+**WHEN** the auto-refresh interval has not yet elapsed  
+**THEN** the web part does not make a new API call — it displays the in-memory cached data
+
+**GIVEN** the auto-refresh interval elapses  
+**WHEN** the API fetch succeeds  
+**THEN** the display updates with the fresh data and the staleness banner (if visible) is cleared
+
+**GIVEN** the auto-refresh interval elapses  
+**WHEN** the API fetch fails  
+**THEN** the display retains the previous data  
+**AND** the staleness banner appears (or remains) with an updated timestamp
+
+---
+
+### REQ-006: Visual Identity
+
+**GIVEN** the web part renders in any context  
+**WHEN** a colour pair is used for text against a background  
+**THEN** the contrast ratio meets WCAG 2.1 AA (≥ 4.5:1 for body text, ≥ 3:1 for large text)
+
+**GIVEN** the web part renders on the Teams tab  
+**WHEN** no weather error exists  
+**THEN** the accent colour is electric cyan (`#22D3EE`)
+
+**GIVEN** any currently-active forecast period includes rain or precipitation probability > 40%  
+**WHEN** the web part renders  
+**THEN** the accent colour is blue (`#3B82F6`) as a rain indicator
 
 ---
 
 ## 6. Architecture Decisions
 
-**GitHub Issue:** `[ARCH] Weather Web Part — Architecture Decision Record`  
-**Labels:** `spec:approved`
-
 | Decision | Choice | Rationale |
 |---|---|---|
-| SPFx version | 1.18.x (latest stable) | Required for Teams SSO and Viva extensibility in v1.1 |
-| UI framework | React + Fluent UI v9 | Platform standard; Fluent v9 supports Teams dark/light theme context |
-| State management | React hooks only (no Redux) | Single-component scope; Redux adds complexity without benefit |
-| API communication | SPFx `HttpClient` | Respects tenant proxy config; required by Constitution |
-| Styling | Fluent UI tokens only | No hardcoded colours; required for Teams theme support |
-| Testing framework | Jest + React Testing Library | SPFx standard; avoids Workbench dependency in unit tests |
-| Bundle size target | < 150 KB gzipped | Performance baseline for modern SharePoint pages |
+| SPFx version | 1.18.x (latest stable at time of build) | Required for Teams tab deployment and Fluent UI v8 compatibility |
+| UI framework | React + Fluent UI v8 | Constitution mandate: Fluent UI v8 for SPFx solutions; v9 not yet stable for SPFx at time of build |
+| State management | React hooks only | Single-component scope; Redux adds complexity the spec does not justify |
+| API communication | Native `fetch` via SPFx context | Open-Meteo has full CORS; SPFx HttpClient not required when CORS is available |
+| Configuration source | `DarkFactory-Settings` SharePoint list | Central store shared across all TheDarkFactory365 solutions — constitution principle (DRY) |
+| Styling | Fluent UI v8 tokens + Dark Factory SCSS overlay | No hardcoded hex values except in the SCSS token file; required for Teams theme compatibility |
+| Testing | Jest + React Testing Library | SPFx standard; avoids Workbench dependency in unit tests |
+| Forecast grouping | WMO weather code → period block mapping | Open-Meteo returns WMO codes; mapping is a pure function, easily unit-tested |
 
 ---
 
 ## 7. Permission Manifest
 
-This section maps directly to `package-solution.json` in the SPFx project.
+This maps directly to `package-solution.json`. Open-Meteo requires no OAuth scopes — there is no account and no credential. The only platform requirement is the CSP allowlist entry, which is handled at the tenant level by Spec 003.
 
 ```json
 {
   "isDomainIsolated": false,
-  "webApiPermissionRequests": [
-    {
-      "resource": "Microsoft Graph",
-      "scope": "User.Read"
-    }
-  ],
-  "externalDomains": [
-    "api.openweathermap.org"
-  ]
+  "webApiPermissionRequests": [],
+  "externalDomains": []
 }
 ```
 
-**`User.Read` justification:** Required to read `me/mailboxSettings` for the user's locale and timezone. Used solely for date/time formatting in the forecast. No user data is stored or transmitted.
+**No Graph permissions**: The web part reads no user data from Graph. Location, timezone, and units come from the SharePoint list.
 
-**`api.openweathermap.org` justification:** External weather API. Domain must be in the SPFx external domains list to pass CSP in production tenants.
+**No `externalDomains` in the manifest**: The CSP allowlist entry for `api.open-meteo.com` is added to the tenant via `Add-SPOContentSecurityPolicy`, which is the correct mechanism for SPFx solutions calling external domains. Listing the domain in the web part manifest alone would not satisfy the tenant CSP policy.
 
 ---
 
 ## 8. What Comes Next
 
-With this specification complete and committed to GitHub, the development workflow is locked:
+With this specification written and every unknown resolved, the implementation has no surprises. The next steps in the Spec Kit workflow are:
 
-1. Every PR references the REQ issue it implements
-2. The spec issue is updated if implementation reveals a gap (Cascade Principle)
-3. Acceptance criteria drive integration test cases — no spec, no test, no merge
-4. The Architecture Decision Record is updated if any technical decision changes
+1. **`/speckit-plan`** — produce the implementation plan: project structure, phased delivery, dependency order, constitution check
+2. **`/speckit-tasks`** — generate a dependency-ordered task list from the plan
+3. **`/speckit-implement`** — execute each task; every task has a test that must pass before it is marked complete
+4. **Spec Drift Sync** — verify contracts, quickstart, and plan match the code before the PR is opened
 
-The spec is the source of truth. The code is evidence that the spec was met.
+The spec is not overhead. It is the contract between intent and code. When something in production doesn't match expectation, the first question is always: was it in the spec?
 
 ---
 
-_Next: [Part 2 — Scaffolding the Project Without Breaking the Spec](./m365-part-2-scaffolding.md)_
+_Next: [Part 2 — The AI Spec Kit: Quality Gates You Can't Skip](./m365-part-2-ai-spec-kit-quality-gates.md)_
