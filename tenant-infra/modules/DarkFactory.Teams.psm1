@@ -5,20 +5,22 @@
 
 function Invoke-TeamsProvisioning {
     [CmdletBinding(SupportsShouldProcess)]
-    param()
+    param(
+        [Parameter(Mandatory)][string] $TeamName,
+        [Parameter(Mandatory)][string] $ChannelName
+    )
 
     $results = @()
-    $teamName = 'DarkFactory'
 
-    $existingTeam = Get-PnPTeamsTeam | Where-Object { $_.DisplayName -eq $teamName }
+    $existingTeam = Get-PnPTeamsTeam | Where-Object { $_.DisplayName -eq $TeamName }
 
     if ($existingTeam) {
-        $results += New-ProvisioningResult -Resource 'DarkFactory Teams team' -Status 'AlreadyExists' -Detail "TeamId: $($existingTeam.GroupId)"
+        $results += New-ProvisioningResult -Resource "$TeamName Teams team" -Status 'AlreadyExists' -Detail "TeamId: $($existingTeam.GroupId)"
     } else {
-        if ($PSCmdlet.ShouldProcess($teamName, 'Create Microsoft Teams team')) {
-            $team = New-PnPTeamsTeam -DisplayName $teamName -Visibility Private -ErrorAction Stop
+        if ($PSCmdlet.ShouldProcess($TeamName, 'Create Microsoft Teams team')) {
+            $team = New-PnPTeamsTeam -DisplayName $TeamName -Visibility Private -ErrorAction Stop
 
-            Write-Host "DarkFactory Teams team created. Waiting for M365 Group provisioning..." -ForegroundColor Yellow
+            Write-Host "$TeamName Teams team created. Waiting for M365 Group provisioning..." -ForegroundColor Yellow
 
             # Retry loop — M365 Group provisioning can take 1–5 minutes; poll up to 20 × 15s = 5 min
             $teamId = $team.GroupId
@@ -30,32 +32,32 @@ function Invoke-TeamsProvisioning {
             } while (-not $resolvedTeam -and $attempts -lt 20)
 
             if (-not $resolvedTeam) {
-                $results += New-ProvisioningResult -Resource 'DarkFactory Teams team' -Status 'Failed' -Detail 'Team was created but GroupId did not become accessible within 5 minutes'
+                $results += New-ProvisioningResult -Resource "$TeamName Teams team" -Status 'Failed' -Detail 'Team was created but GroupId did not become accessible within 5 minutes'
                 return $results
             }
 
-            $results += New-ProvisioningResult -Resource 'DarkFactory Teams team' -Status 'Created' -Detail "TeamId: $teamId — provisioned after $($attempts * 15)s"
+            $results += New-ProvisioningResult -Resource "$TeamName Teams team" -Status 'Created' -Detail "TeamId: $teamId — provisioned after $($attempts * 15)s"
             $existingTeam = $resolvedTeam
         } else {
-            $results += New-ProvisioningResult -Resource 'DarkFactory Teams team' -Status 'AlreadyExists' -Detail '[WhatIf] Would create DarkFactory team'
-            $results += New-ProvisioningResult -Resource 'General channel' -Status 'AlreadyExists' -Detail '[WhatIf] Would verify General channel'
+            $results += New-ProvisioningResult -Resource "$TeamName Teams team" -Status 'AlreadyExists' -Detail "[WhatIf] Would create $TeamName team"
+            $results += New-ProvisioningResult -Resource "$ChannelName channel"  -Status 'AlreadyExists' -Detail "[WhatIf] Would verify $ChannelName channel"
             return $results
         }
     }
 
-    # Verify/create General channel
+    # Verify/create the configured channel
     $teamId = if ($existingTeam.GroupId) { $existingTeam.GroupId } else { $existingTeam.Id }
     $channels = Get-PnPTeamsChannel -Team $teamId -ErrorAction SilentlyContinue
-    $generalChannel = $channels | Where-Object { $_.DisplayName -eq 'General' }
+    $targetChannel = $channels | Where-Object { $_.DisplayName -eq $ChannelName }
 
-    if ($generalChannel) {
-        $results += New-ProvisioningResult -Resource 'General channel' -Status 'AlreadyExists' -Detail 'Auto-created with team'
+    if ($targetChannel) {
+        $results += New-ProvisioningResult -Resource "$ChannelName channel" -Status 'AlreadyExists' -Detail 'Auto-created with team'
     } else {
-        if ($PSCmdlet.ShouldProcess($teamId, 'Create General channel')) {
-            New-PnPTeamsChannel -Team $teamId -DisplayName 'General' | Out-Null
-            $results += New-ProvisioningResult -Resource 'General channel' -Status 'Created' -Detail 'Created in DarkFactory team'
+        if ($PSCmdlet.ShouldProcess($teamId, "Create $ChannelName channel")) {
+            New-PnPTeamsChannel -Team $teamId -DisplayName $ChannelName | Out-Null
+            $results += New-ProvisioningResult -Resource "$ChannelName channel" -Status 'Created' -Detail "Created in $TeamName team"
         } else {
-            $results += New-ProvisioningResult -Resource 'General channel' -Status 'AlreadyExists' -Detail '[WhatIf] Would create General channel'
+            $results += New-ProvisioningResult -Resource "$ChannelName channel" -Status 'AlreadyExists' -Detail "[WhatIf] Would create $ChannelName channel"
         }
     }
 

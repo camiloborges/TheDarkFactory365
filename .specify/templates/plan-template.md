@@ -114,3 +114,22 @@ directories captured above]
 |-----------|------------|-------------------------------------|
 | [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
 | [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+
+---
+
+## Spec Drift Sync Checkpoint
+
+> **Complete this section before opening a PR — required by the Spec Drift Policy (constitution v1.1.0+)**
+
+After implementation, verify each artifact is accurate against the code. Check the box when confirmed or note the update made.
+
+| Artifact | Status | Notes |
+|---|---|---|
+| `contracts/` — param block, output contract, example invocations | ☐ verified / ☐ updated | |
+| `quickstart.md` — run instructions, prereqs, verification checklist | ☐ verified / ☐ updated | |
+| `plan.md` — Project Structure matches actual directory layout | ☐ verified / ☐ updated | |
+| `plan.md` — Key Design Decisions captures implementation choices | ☐ verified / ☐ updated | |
+| `plan.md` — Constitution Check notes reflect final design | ☐ verified / ☐ updated | |
+| `tasks.md` — post-implementation changes recorded as completed tasks | ☐ verified / ☐ updated | |
+
+Any implementation decision that diverged from the plan MUST be recorded in `tasks.md` as a completed post-implementation task (T0XX) before this checkpoint is closed.

@@ -6,7 +6,9 @@
 function Invoke-SiteProvisioning {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [Parameter(Mandatory)][string] $SiteUrl
+        [Parameter(Mandatory)][string] $SiteUrl,
+        [Parameter(Mandatory)][string] $SiteTitle,
+        [Parameter(Mandatory)][string] $SiteAlias
     )
 
     $existing = Get-PnPSite -Url $SiteUrl -ErrorAction SilentlyContinue
@@ -15,7 +17,7 @@ function Invoke-SiteProvisioning {
     }
 
     if ($PSCmdlet.ShouldProcess($SiteUrl, 'Create SharePoint Team Site')) {
-        New-PnPSite -Type TeamSite -Title 'DarkFactory' -Alias 'DarkFactory' -ErrorAction Stop | Out-Null
+        New-PnPSite -Type TeamSite -Title $SiteTitle -Alias $SiteAlias -ErrorAction Stop | Out-Null
 
         # Poll until site is accessible (up to 10 × 15s = 2.5 min)
         $attempts = 0

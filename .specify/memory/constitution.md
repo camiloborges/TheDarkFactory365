@@ -1,29 +1,29 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: [BLANK TEMPLATE] → 1.0.0
-Type: MAJOR (initial ratification — no prior principles existed)
+Version change: 1.0.0 → 1.1.0
+Type: MINOR (new rule added under Principle V; new gate added to Development Workflow)
 
-Added principles:
-  I.   Dark Factory Automation-First (new)
-  II.  Microsoft 365 Platform-Native (new)
-  III. Spec-Driven Development (new)
-  IV.  SOLID Engineering (new)
-  V.   DRY — Don't Repeat Yourself (new)
-  VI.  YAGNI — High Standard, Not High Complexity (new)
-  VII. Accessibility and Quality Compliance (new)
+Changed principles:
+  V. DRY — extended to cover provisioning script configuration (config.psd1 rule added)
 
-Added sections:
-  - Platform Standards (subscription, licensing, visual identity)
-  - Development Workflow (Spec Kit gates, independent review, deployment)
-
-Removed sections: none
+Changed sections:
+  - Development Workflow / Spec Kit Gate Sequence — added Spec Drift Sync gate after /speckit-implement
+  - Development Workflow — added Spec Drift Policy subsection
 
 Templates updated:
   ✅ .specify/memory/constitution.md (this file)
-  ✅ .specify/templates/plan-template.md — Constitution Check gates updated
-  ⚠  .specify/templates/spec-template.md — no changes required; structure already compatible
-  ⚠  .specify/templates/tasks-template.md — no changes required; accessibility task pattern is additive
+  ✅ .specify/templates/plan-template.md — Spec Drift Sync checkpoint added
+
+Backward compatibility:
+  - No previously valid solution is invalidated by this amendment
+  - Spec 003 (tenant-infra) is the first feature to comply with the new config.psd1 rule
+
+Prior version:
+  Version change: [BLANK TEMPLATE] → 1.0.0
+  Type: MAJOR (initial ratification — no prior principles existed)
+  Added principles: I–VII (all new)
+  Added sections: Platform Standards, Development Workflow
 
 Deferred items:
   - TODO(RATIFICATION_AUTHORITY): Solo project — owner (Camilo Borges) is sole ratifier.
@@ -95,8 +95,12 @@ Tracking table.
 
 Every piece of knowledge MUST have a single, authoritative source. Duplication is a defect.
 
-- Configuration values live in the SharePoint `DarkFactory-Settings` list — not in code, not in
-  multiple places
+- **Runtime configuration** (location, API endpoints, refresh intervals): lives in the SharePoint
+  `DarkFactory-Settings` list — not in code, not in multiple places
+- **Provisioning script configuration** (tenant URLs, resource names, SharePoint group names,
+  fixed seed entries, CSP sources): MUST be declared once in `config.psd1` alongside the
+  provisioning script — never hardcoded in module bodies or the main orchestrator; provisioning
+  modules MUST be stateless and receive all config values as explicit parameters
 - Domain lookup tables (e.g., WMO weather codes, forecast period boundaries, Dark Factory colour
   tokens) are defined once and imported; never copied
 - Dark Factory colour palette tokens are defined in one SCSS file and imported everywhere; no
@@ -190,7 +194,32 @@ justification signed off by the project owner.
                   →  Constitution Check passed in plan.md
 /speckit-tasks    →  tasks.md generated
 /speckit-implement → implementation begins
+                  ↓
+[Spec Drift Sync] →  contracts/, quickstart.md, plan.md project structure verified against code
+                  →  any implementation decisions that diverged from the plan recorded in tasks.md
+                  →  all spec artifacts accurate before PR is opened
 ```
+
+### Spec Drift Policy
+
+Any implementation decision that diverges from or extends the original plan — including design
+decisions made during coding, refactors, and post-implementation improvements — MUST be
+reflected in the spec artifacts before the feature branch is merged.
+
+**What must stay in sync** after implementation:
+
+| Artifact | What to verify |
+|---|---|
+| `contracts/script-interface.md` | Parameter block, example invocations, output contract |
+| `quickstart.md` | Run instructions, prerequisite steps, verification checklist |
+| `plan.md` — Project Structure | File/directory tree matches what was actually created |
+| `plan.md` — Key Design Decisions | Captures all significant decisions made during implementation |
+| `plan.md` — Constitution Check | DRY/SOLID/YAGNI notes reflect the final design |
+| `tasks.md` | Post-implementation changes recorded as completed tasks (e.g., T0XX) |
+
+**Trigger**: Any time you implement something that was not in the original plan (a refactor, a new
+design decision, a new file), add it to `tasks.md` and update the affected artifact before opening
+a PR. The drift check is not a separate phase — it is the final step of every implementation task.
 
 ### Constitution Check (required in every plan.md)
 
@@ -245,4 +274,4 @@ TheDarkFactory365 project.
 - Independent platform reviews (as conducted for Spec 001) are RECOMMENDED for any feature
   involving new M365 platform capabilities not previously validated in this project
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-10 | **Last Amended**: 2026-05-10
+**Version**: 1.1.0 | **Ratified**: 2026-05-10 | **Last Amended**: 2026-05-11

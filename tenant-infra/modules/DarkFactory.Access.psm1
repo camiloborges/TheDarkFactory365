@@ -7,7 +7,8 @@ function Invoke-GuestAccessProvisioning {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)][string]   $SiteUrl,
-        [Parameter(Mandatory)][string[]] $GuestEmails
+        [Parameter(Mandatory)][string[]] $GuestEmails,
+        [Parameter(Mandatory)][string]   $VisitorsGroup
     )
 
     $results = @()
@@ -22,12 +23,11 @@ function Invoke-GuestAccessProvisioning {
             continue
         }
 
-        if ($PSCmdlet.ShouldProcess($email, 'Add to DarkFactory Visitors group')) {
-            # Add-PnPGroupMember adds user to a named SharePoint group (correct for Visitor access)
-            Add-PnPGroupMember -LoginName $email -Group 'DarkFactory Visitors' | Out-Null
-            $results += New-ProvisioningResult -Resource "Guest: $email" -Status 'Created' -Detail 'Added to DarkFactory Visitors group'
+        if ($PSCmdlet.ShouldProcess($email, "Add to $VisitorsGroup group")) {
+            Add-PnPGroupMember -LoginName $email -Group $VisitorsGroup | Out-Null
+            $results += New-ProvisioningResult -Resource "Guest: $email" -Status 'Created' -Detail "Added to $VisitorsGroup group"
         } else {
-            $results += New-ProvisioningResult -Resource "Guest: $email" -Status 'AlreadyExists' -Detail '[WhatIf] Would add to DarkFactory Visitors group'
+            $results += New-ProvisioningResult -Resource "Guest: $email" -Status 'AlreadyExists' -Detail "[WhatIf] Would add to $VisitorsGroup group"
         }
     }
 

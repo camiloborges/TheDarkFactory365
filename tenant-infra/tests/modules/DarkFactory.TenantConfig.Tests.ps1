@@ -10,6 +10,11 @@ BeforeAll {
     Import-Module (Join-Path $base 'DarkFactory.Report.psm1')      -Force
     Import-Module (Join-Path $base 'DarkFactory.AppCatalog.psm1')  -Force
     Import-Module (Join-Path $base 'DarkFactory.CSP.psm1')         -Force
+
+    # Mirror config.psd1 values
+    $script:AppCatalogUrl = 'https://aiwhisperer.sharepoint.com/sites/appcatalog'
+    $script:Owner         = 'camilo.borges@aiwhisperer.onmicrosoft.com'
+    $script:TimeZoneId    = 17
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -21,12 +26,12 @@ Describe 'Invoke-AppCatalogProvisioning' {
         }
 
         It 'Calls Register-PnPAppCatalogSite' {
-            Invoke-AppCatalogProvisioning -Confirm:$false
+            Invoke-AppCatalogProvisioning -AppCatalogUrl $script:AppCatalogUrl -Owner $script:Owner -TimeZoneId $script:TimeZoneId -Confirm:$false
             Should -Invoke Register-PnPAppCatalogSite -ModuleName DarkFactory.AppCatalog -Times 1 -Exactly
         }
 
         It 'Returns Created status with propagation warning' {
-            $r = Invoke-AppCatalogProvisioning -Confirm:$false
+            $r = Invoke-AppCatalogProvisioning -AppCatalogUrl $script:AppCatalogUrl -Owner $script:Owner -TimeZoneId $script:TimeZoneId -Confirm:$false
             $r.Status | Should -Be 'Created'
             $r.Detail | Should -Match '⚠'
         }
@@ -39,12 +44,12 @@ Describe 'Invoke-AppCatalogProvisioning' {
         }
 
         It 'Does NOT call Register-PnPAppCatalogSite' {
-            Invoke-AppCatalogProvisioning -Confirm:$false
+            Invoke-AppCatalogProvisioning -AppCatalogUrl $script:AppCatalogUrl -Owner $script:Owner -TimeZoneId $script:TimeZoneId -Confirm:$false
             Should -Invoke Register-PnPAppCatalogSite -ModuleName DarkFactory.AppCatalog -Times 0
         }
 
         It 'Returns AlreadyExists with the catalog URL' {
-            $r = Invoke-AppCatalogProvisioning -Confirm:$false
+            $r = Invoke-AppCatalogProvisioning -AppCatalogUrl $script:AppCatalogUrl -Owner $script:Owner -TimeZoneId $script:TimeZoneId -Confirm:$false
             $r.Status | Should -Be 'AlreadyExists'
             $r.Detail | Should -Match 'aiwhisperer'
         }

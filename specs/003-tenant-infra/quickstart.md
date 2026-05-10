@@ -32,6 +32,23 @@ Get-Module PnP.PowerShell -ListAvailable | Select-Object Name, Version
 
 ## Before You Run
 
+### Review config.psd1
+
+Open `tenant-infra/config.psd1` and confirm the static values are correct for your tenant:
+
+| Section | What to verify |
+|---|---|
+| `Tenant.Domain` | Your M365 tenant domain (e.g. `aiwhisperer.onmicrosoft.com`) |
+| `Tenant.AdminUrl` | Your SharePoint admin URL (e.g. `https://aiwhisperer-admin.sharepoint.com`) |
+| `Site.Url` | Desired DarkFactory site URL |
+| `AppCatalog.Owner` | Admin email address that will own the App Catalog |
+| `AppCatalog.TimeZoneId` | SPO timezone ID for your region (17 = Auckland/Wellington) |
+| `CSP.Sources` | External API domains to allow — add new ones here as new specs are deployed |
+
+You do **not** need to edit `config.psd1` on every run — these values are set once and remain stable across re-runs.
+
+### Gather runtime parameters
+
 Gather these values — you will need them as script parameters:
 
 | Parameter | Your value |

@@ -115,6 +115,16 @@
 
 ---
 
+## Post-Implementation: Config-Driven Refactor
+
+**Purpose**: Spec drift sync following the config-driven refactor applied after initial implementation.
+
+- [X] T027 Refactor all provisioning modules to be stateless and config-driven — extract all hardcoded constants (tenant URLs, resource names, group names, fixed seed entries, CSP sources, App Catalog owner/TimeZoneId) into `tenant-infra/config.psd1`; add `-ConfigPath` parameter to `Invoke-DarkFactoryProvisioning.ps1` defaulting to `$PSScriptRoot\config.psd1`; update all module functions to accept config values as explicit mandatory parameters instead of relying on module-level variables; update all Pester tests to pass new params; sync drift into `contracts/script-interface.md`, `plan.md` (project structure + Key Design Decisions + Constitution Check DRY note), `quickstart.md` (config review step), and `tasks.md` (this task)
+
+**Checkpoint**: All module functions are stateless and receive config exclusively via parameters. `config.psd1` is the single source of truth. All spec artifacts match the code.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

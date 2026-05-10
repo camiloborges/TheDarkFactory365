@@ -44,7 +44,7 @@ A Windows PowerShell provisioning script (`Invoke-DarkFactoryProvisioning.ps1`) 
 | II. Platform-Native | All extension points official and supported? | ✅ | SPO Management Shell, PnP PowerShell, Power Apps Admin module — all official Microsoft tooling. No unsupported APIs |
 | III. Spec-Driven | spec.md approved and research.md complete? | ✅ | Spec approved with independent M365 consultant review; research.md all decisions resolved |
 | IV. SOLID | Single responsibility per function/module? | ✅ | One function per resource type; orchestrator handles sequencing only; report module handles output only |
-| V. DRY | Every config value defined once? | ✅ | Seed data assembled once from parameters; no repeated constants; module-level constants for tenant URLs |
+| V. DRY | Every config value defined once? | ✅ | All static values (tenant URLs, resource names, group names, seed data) declared once in `config.psd1`; modules are stateless and receive values as explicit params — no hardcoded constants in module bodies |
 | VI. YAGNI | Every architectural decision justified by current need? | ✅ | Microsoft365DSC excluded (no drift detection needed for personal one-time provisioning); no plugin system; no CI/CD pipeline support |
 | VII. Accessibility | WCAG 2.1 AA verified? | N/A | CLI provisioning script, not a UI. Completion report is plain text — human-readable format verified |
 | Platform Gate | M365 Business Basic subscription confirmed? | ✅ | `aiwhisperer.onmicrosoft.com` confirmed 2026-05-10 |
@@ -76,6 +76,7 @@ specs/003-tenant-infra/
 ```
 tenant-infra/
 ├── Invoke-DarkFactoryProvisioning.ps1    # Entry point — orchestrates all provisioning
+├── config.psd1                           # Single source of truth for all static configuration
 ├── modules/
 │   ├── DarkFactory.AppCatalog.psm1      # App Catalog: Get/Register-PnPAppCatalogSite
 │   ├── DarkFactory.CSP.psm1             # CSP: Get/Add-SPOContentSecurityPolicy + enforcement check
@@ -92,7 +93,7 @@ tenant-infra/
         └── DarkFactory.Report.Tests.ps1           # Pester unit tests for report formatting
 ```
 
-**Structure decision**: Modular PowerShell script with one `.psm1` per resource domain. Entry point imports all modules and orchestrates execution. Each module exports exactly one public provisioning function (Single Responsibility). Internal helpers are unexported. This enables isolated Pester unit testing per module without running against a live tenant.
+**Structure decision**: Modular PowerShell script with one `.psm1` per resource domain. Entry point imports all modules and orchestrates execution. Each module exports exactly one public provisioning function (Single Responsibility). All static values (tenant URLs, resource names, group names, seed data) live in `config.psd1` — modules are stateless and accept config values as explicit parameters. This enables isolated Pester unit testing per module without running against a live tenant, and makes the modules reusable across tenants by supplying a different config file.
 
 ---
 
@@ -210,6 +211,7 @@ tenant-infra/
 | `ProvisioningResult` PSCustomObject as universal return type | L (Liskov) | All modules return same shape; orchestrator handles them uniformly |
 | Each module exports exactly one public `Invoke-*` function | Interface Segregation | Consumers depend only on the function they need |
 | Connections established at entry point, passed to modules | D (Dependency Inversion) | Modules never create connections; mockable in Pester tests |
+| All static config in `config.psd1`; modules accept values as explicit params | DRY | Single source of truth for tenant URLs, resource names, group names, seed data; modules have no hardcoded constants and are reusable across tenants |
 | `HasUniqueRoleAssignments` guard before `BreakRoleInheritance` | DRY | One guard prevents silent permission destruction on re-run |
 | Microsoft365DSC excluded | YAGNI | Drift detection unjustified for one-time personal provisioning |
 | Report as collected array, formatted once at end | DRY | Single formatting function; same output on console and file |

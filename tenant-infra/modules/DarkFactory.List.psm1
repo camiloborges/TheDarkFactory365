@@ -3,12 +3,12 @@
     SharePoint list provisioning: DarkFactory-Settings schema, permissions, and seed data.
 #>
 
-$ListName = 'DarkFactory-Settings'
-
 function Invoke-ListProvisioning {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [Parameter(Mandatory)][string] $SiteUrl
+        [Parameter(Mandatory)][string]   $SiteUrl,
+        [Parameter(Mandatory)][string]   $ListName,
+        [Parameter(Mandatory)][string[]] $Categories
     )
 
     $list = Get-PnPList -Identity $ListName -ErrorAction SilentlyContinue
@@ -22,7 +22,7 @@ function Invoke-ListProvisioning {
 
         Add-PnPField -List $ListName -DisplayName 'DFValue'       -InternalName 'DFValue'       -Type Text     -Required | Out-Null
         Add-PnPField -List $ListName -DisplayName 'DFDescription' -InternalName 'DFDescription' -Type Note               | Out-Null
-        Add-PnPField -List $ListName -DisplayName 'DFCategory'    -InternalName 'DFCategory'    -Type Choice   -Choices @('Weather','Alerts','General') | Out-Null
+        Add-PnPField -List $ListName -DisplayName 'DFCategory'    -InternalName 'DFCategory'    -Type Choice   -Choices $Categories | Out-Null
 
         return New-ProvisioningResult -Resource "$ListName list" -Status 'Created' -Detail '4 columns added (Title, DFValue, DFDescription, DFCategory)'
     }
@@ -33,7 +33,11 @@ function Invoke-ListProvisioning {
 function Invoke-ListPermissionsProvisioning {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [Parameter(Mandatory)][string] $SiteUrl
+        [Parameter(Mandatory)][string] $SiteUrl,
+        [Parameter(Mandatory)][string] $ListName,
+        [Parameter(Mandatory)][string] $OwnersGroup,
+        [Parameter(Mandatory)][string] $MembersGroup,
+        [Parameter(Mandatory)][string] $VisitorsGroup
     )
 
     $list = Get-PnPList -Identity $ListName -ErrorAction SilentlyContinue
@@ -48,11 +52,11 @@ function Invoke-ListPermissionsProvisioning {
 
     if ($PSCmdlet.ShouldProcess($ListName, 'Break role inheritance and set permissions')) {
         Set-PnPList -Identity $ListName -BreakRoleInheritance -CopyRoleAssignments:$false | Out-Null
-        Set-PnPListPermission -Identity $ListName -Group 'DarkFactory Owners'   -AddRole 'Full Control'
-        Set-PnPListPermission -Identity $ListName -Group 'DarkFactory Members'  -AddRole 'Read'
-        Set-PnPListPermission -Identity $ListName -Group 'DarkFactory Visitors' -AddRole 'Read'
+        Set-PnPListPermission -Identity $ListName -Group $OwnersGroup   -AddRole 'Full Control'
+        Set-PnPListPermission -Identity $ListName -Group $MembersGroup  -AddRole 'Read'
+        Set-PnPListPermission -Identity $ListName -Group $VisitorsGroup -AddRole 'Read'
 
-        return New-ProvisioningResult -Resource "$ListName permissions" -Status 'Created' -Detail 'Unique permissions set (Owners=FC, Members/Visitors=Read)'
+        return New-ProvisioningResult -Resource "$ListName permissions" -Status 'Created' -Detail "Unique permissions set ($OwnersGroup=FC, $MembersGroup/$VisitorsGroup=Read)"
     }
 
     return New-ProvisioningResult -Resource "$ListName permissions" -Status 'AlreadyExists' -Detail '[WhatIf] Would break inheritance and set permissions'
@@ -61,7 +65,8 @@ function Invoke-ListPermissionsProvisioning {
 function Invoke-ConfigSeedProvisioning {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [Parameter(Mandatory)][string]         $SiteUrl,
+        [Parameter(Mandatory)][string]          $SiteUrl,
+        [Parameter(Mandatory)][string]          $ListName,
         [Parameter(Mandatory)][PSCustomObject[]] $SeedEntries
     )
 
@@ -78,10 +83,10 @@ function Invoke-ConfigSeedProvisioning {
 
         if ($PSCmdlet.ShouldProcess($entry.Key, "Add config seed entry to $ListName")) {
             Add-PnPListItem -List $ListName -Values @{
-                Title          = $entry.Key
-                DFValue        = $entry.Value
-                DFCategory     = $entry.Category
-                DFDescription  = $entry.Description
+                Title         = $entry.Key
+                DFValue       = $entry.Value
+                DFCategory    = $entry.Category
+                DFDescription = $entry.Description
             } | Out-Null
 
             $results += New-ProvisioningResult -Resource "Seed: $($entry.Key)" -Status 'Created' -Detail $entry.Value
