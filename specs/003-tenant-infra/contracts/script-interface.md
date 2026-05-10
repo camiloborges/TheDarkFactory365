@@ -7,7 +7,7 @@
 
 ```powershell
 param(
-    # Home location — all required, no defaults
+    # Home location — all required, no defaults (runtime values specific to each run)
     [Parameter(Mandatory)][double] $Latitude,
     [Parameter(Mandatory)][double] $Longitude,
     [Parameter(Mandatory)][string] $Timezone,       # IANA, e.g. "Pacific/Auckland"
@@ -16,6 +16,10 @@ param(
 
     # Guest accounts (optional — omit if no family members yet)
     [string[]] $GuestEmails = @(),
+
+    # Config file path — all static values (tenant URLs, resource names, seed data)
+    # Defaults to config.psd1 in the script directory; override to target a different tenant
+    [string] $ConfigPath = (Join-Path $PSScriptRoot 'config.psd1'),
 
     # Dry run — prints what would happen; makes no changes
     [switch] $WhatIf
@@ -32,11 +36,31 @@ param(
 | `LocationName` | Non-empty string, max 255 characters |
 | `City` | Non-empty string, max 255 characters |
 | `GuestEmails` | Each entry must be a valid email address format |
+| `ConfigPath` | Path must exist; defaults to `config.psd1` in the script directory |
+
+### Configuration File
+
+All static values are declared in `config.psd1` (PowerShell Data File) alongside the script:
+
+```
+tenant-infra/
+├── Invoke-DarkFactoryProvisioning.ps1
+└── config.psd1     ← edit this to change tenant, resource names, or add CSP sources
+```
+
+`config.psd1` sections:
+- `Tenant` — domain, admin URL
+- `Site` — title, alias, URL, SharePoint group names
+- `AppCatalog` — URL, owner, time zone
+- `ConfigList` — list name, category choices
+- `Teams` — team name, channel name
+- `CSP.Sources` — array of domains to add to the CSP allowlist (add new specs' APIs here)
+- `SeedData.Fixed` — non-location seed entries written to `DarkFactory-Settings`
 
 ### Example Invocations
 
 ```powershell
-# Full provisioning with 2 guest accounts
+# Full provisioning with 2 guest accounts (uses default config.psd1)
 .\Invoke-DarkFactoryProvisioning.ps1 `
     -Latitude -36.8509 `
     -Longitude 174.7645 `
@@ -55,6 +79,12 @@ param(
 .\Invoke-DarkFactoryProvisioning.ps1 `
     -Latitude -36.8509 -Longitude 174.7645 `
     -Timezone "Pacific/Auckland" -LocationName "Home" -City "Auckland"
+
+# Target a different config file (e.g., staging tenant)
+.\Invoke-DarkFactoryProvisioning.ps1 `
+    -Latitude -36.8509 -Longitude 174.7645 `
+    -Timezone "Pacific/Auckland" -LocationName "Home" -City "Auckland" `
+    -ConfigPath ".\config.staging.psd1"
 ```
 
 ---

@@ -10,45 +10,53 @@ BeforeAll {
     Import-Module $StubsPath  -Force
     Import-Module $ReportPath -Force
     Import-Module $ListPath   -Force
+
+    # Shared test values — mirror what config.psd1 supplies in production
+    $script:ListName     = 'DarkFactory-Settings'
+    $script:Categories   = @('Weather', 'Alerts', 'General')
+    $script:OwnersGroup  = 'DarkFactory Owners'
+    $script:MembersGroup = 'DarkFactory Members'
+    $script:VisitorsGroup = 'DarkFactory Visitors'
+    $script:SiteUrl      = 'https://t.com/sites/DF'
 }
 
 Describe 'Invoke-ListProvisioning' {
     Context 'When list does not exist' {
         BeforeEach {
             Mock Get-PnPList   -ModuleName DarkFactory.List { return $null }
-            Mock New-PnPList   -ModuleName DarkFactory.List { return [PSCustomObject]@{ Title = 'DarkFactory-Settings' } }
+            Mock New-PnPList   -ModuleName DarkFactory.List { return [PSCustomObject]@{ Title = $script:ListName } }
             Mock Add-PnPField  -ModuleName DarkFactory.List { return $null }
         }
 
         It 'Calls New-PnPList when list is absent' {
-            Invoke-ListProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            Invoke-ListProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -Categories $script:Categories -Confirm:$false
             Should -Invoke New-PnPList -ModuleName DarkFactory.List -Times 1 -Exactly
         }
 
         It 'Creates all 3 extra columns' {
-            Invoke-ListProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            Invoke-ListProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -Categories $script:Categories -Confirm:$false
             Should -Invoke Add-PnPField -ModuleName DarkFactory.List -Times 3 -Exactly
         }
 
         It 'Returns Created status' {
-            $r = Invoke-ListProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            $r = Invoke-ListProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -Categories $script:Categories -Confirm:$false
             $r.Status | Should -Be 'Created'
         }
     }
 
     Context 'When list already exists' {
         BeforeEach {
-            Mock Get-PnPList  -ModuleName DarkFactory.List { return [PSCustomObject]@{ Title = 'DarkFactory-Settings' } }
+            Mock Get-PnPList  -ModuleName DarkFactory.List { return [PSCustomObject]@{ Title = $script:ListName } }
             Mock New-PnPList  -ModuleName DarkFactory.List { }
         }
 
         It 'Does NOT call New-PnPList' {
-            Invoke-ListProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            Invoke-ListProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -Categories $script:Categories -Confirm:$false
             Should -Invoke New-PnPList -ModuleName DarkFactory.List -Times 0
         }
 
         It 'Returns AlreadyExists status' {
-            $r = Invoke-ListProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            $r = Invoke-ListProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -Categories $script:Categories -Confirm:$false
             $r.Status | Should -Be 'AlreadyExists'
         }
     }
@@ -59,7 +67,7 @@ Describe 'Invoke-ListPermissionsProvisioning' {
         BeforeEach {
             Mock Get-PnPList -ModuleName DarkFactory.List {
                 [PSCustomObject]@{
-                    Title                    = 'DarkFactory-Settings'
+                    Title                    = $script:ListName
                     HasUniqueRoleAssignments = $false
                 }
             }
@@ -68,17 +76,20 @@ Describe 'Invoke-ListPermissionsProvisioning' {
         }
 
         It 'Calls Set-PnPList -BreakRoleInheritance' {
-            Invoke-ListPermissionsProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            Invoke-ListPermissionsProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName `
+                -OwnersGroup $script:OwnersGroup -MembersGroup $script:MembersGroup -VisitorsGroup $script:VisitorsGroup -Confirm:$false
             Should -Invoke Set-PnPList -ModuleName DarkFactory.List -Times 1 -Exactly
         }
 
         It 'Sets permissions for Owners, Members, and Visitors' {
-            Invoke-ListPermissionsProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            Invoke-ListPermissionsProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName `
+                -OwnersGroup $script:OwnersGroup -MembersGroup $script:MembersGroup -VisitorsGroup $script:VisitorsGroup -Confirm:$false
             Should -Invoke Set-PnPListPermission -ModuleName DarkFactory.List -Times 3 -Exactly
         }
 
         It 'Returns Created status' {
-            $r = Invoke-ListPermissionsProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            $r = Invoke-ListPermissionsProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName `
+                -OwnersGroup $script:OwnersGroup -MembersGroup $script:MembersGroup -VisitorsGroup $script:VisitorsGroup -Confirm:$false
             $r.Status | Should -Be 'Created'
         }
     }
@@ -87,7 +98,7 @@ Describe 'Invoke-ListPermissionsProvisioning' {
         BeforeEach {
             Mock Get-PnPList -ModuleName DarkFactory.List {
                 [PSCustomObject]@{
-                    Title                    = 'DarkFactory-Settings'
+                    Title                    = $script:ListName
                     HasUniqueRoleAssignments = $true
                 }
             }
@@ -96,12 +107,14 @@ Describe 'Invoke-ListPermissionsProvisioning' {
         }
 
         It 'Does NOT call Set-PnPList (critical idempotency guard)' {
-            Invoke-ListPermissionsProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            Invoke-ListPermissionsProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName `
+                -OwnersGroup $script:OwnersGroup -MembersGroup $script:MembersGroup -VisitorsGroup $script:VisitorsGroup -Confirm:$false
             Should -Invoke Set-PnPList -ModuleName DarkFactory.List -Times 0
         }
 
         It 'Returns AlreadyExists status' {
-            $r = Invoke-ListPermissionsProvisioning -SiteUrl 'https://t.com/sites/DF' -Confirm:$false
+            $r = Invoke-ListPermissionsProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName `
+                -OwnersGroup $script:OwnersGroup -MembersGroup $script:MembersGroup -VisitorsGroup $script:VisitorsGroup -Confirm:$false
             $r.Status | Should -Be 'AlreadyExists'
         }
     }
@@ -122,12 +135,12 @@ Describe 'Invoke-ConfigSeedProvisioning' {
         }
 
         It 'Calls Add-PnPListItem for each seed entry' {
-            Invoke-ConfigSeedProvisioning -SiteUrl 'https://t.com/sites/DF' -SeedEntries $script:seedEntries -Confirm:$false
+            Invoke-ConfigSeedProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -SeedEntries $script:seedEntries -Confirm:$false
             Should -Invoke Add-PnPListItem -ModuleName DarkFactory.List -Times 2 -Exactly
         }
 
         It 'Returns Created for each new entry' {
-            $results = Invoke-ConfigSeedProvisioning -SiteUrl 'https://t.com/sites/DF' -SeedEntries $script:seedEntries -Confirm:$false
+            $results = Invoke-ConfigSeedProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -SeedEntries $script:seedEntries -Confirm:$false
             $results | ForEach-Object { $_.Status | Should -Be 'Created' }
         }
     }
@@ -139,12 +152,12 @@ Describe 'Invoke-ConfigSeedProvisioning' {
         }
 
         It 'Does NOT call Add-PnPListItem' {
-            Invoke-ConfigSeedProvisioning -SiteUrl 'https://t.com/sites/DF' -SeedEntries $script:seedEntries -Confirm:$false
+            Invoke-ConfigSeedProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -SeedEntries $script:seedEntries -Confirm:$false
             Should -Invoke Add-PnPListItem -ModuleName DarkFactory.List -Times 0
         }
 
         It 'Returns AlreadyExists for each existing entry' {
-            $results = Invoke-ConfigSeedProvisioning -SiteUrl 'https://t.com/sites/DF' -SeedEntries $script:seedEntries -Confirm:$false
+            $results = Invoke-ConfigSeedProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -SeedEntries $script:seedEntries -Confirm:$false
             $results | ForEach-Object { $_.Status | Should -Be 'AlreadyExists' }
         }
     }
@@ -152,7 +165,7 @@ Describe 'Invoke-ConfigSeedProvisioning' {
     It 'Returns one result per seed entry' {
         Mock Get-PnPListItem -ModuleName DarkFactory.List { return $null }
         Mock Add-PnPListItem -ModuleName DarkFactory.List { return [PSCustomObject]@{ Id = 1 } }
-        $results = Invoke-ConfigSeedProvisioning -SiteUrl 'https://t.com/sites/DF' -SeedEntries $script:seedEntries -Confirm:$false
+        $results = Invoke-ConfigSeedProvisioning -SiteUrl $script:SiteUrl -ListName $script:ListName -SeedEntries $script:seedEntries -Confirm:$false
         $results.Count | Should -Be 2
     }
 }

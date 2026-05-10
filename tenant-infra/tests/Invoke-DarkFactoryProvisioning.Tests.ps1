@@ -131,7 +131,10 @@ Describe 'Edge cases' {
         Mock Set-PnPList            { }
         Mock Set-PnPListPermission  { }
 
-        Invoke-ListPermissionsProvisioning -SiteUrl 'https://t.com' -Confirm:$false
+        Invoke-ListPermissionsProvisioning -SiteUrl 'https://t.com' `
+            -ListName 'DarkFactory-Settings' `
+            -OwnersGroup 'DarkFactory Owners' -MembersGroup 'DarkFactory Members' -VisitorsGroup 'DarkFactory Visitors' `
+            -Confirm:$false
         Should -Invoke Set-PnPList -Times 0
     }
 

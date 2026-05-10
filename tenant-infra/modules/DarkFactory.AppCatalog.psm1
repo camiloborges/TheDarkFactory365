@@ -3,13 +3,13 @@
     SharePoint tenant App Catalog provisioning.
 #>
 
-$AppCatalogUrl   = 'https://aiwhisperer.sharepoint.com/sites/appcatalog'
-$AppCatalogOwner = 'camilo.borges@aiwhisperer.onmicrosoft.com'
-$AppCatalogTZ    = 17  # (UTC+12:00) Auckland, Wellington
-
 function Invoke-AppCatalogProvisioning {
     [CmdletBinding(SupportsShouldProcess)]
-    param()
+    param(
+        [Parameter(Mandatory)][string] $AppCatalogUrl,
+        [Parameter(Mandatory)][string] $Owner,
+        [Parameter(Mandatory)][int]    $TimeZoneId
+    )
 
     $existingUrl = Get-PnPTenantAppCatalogUrl -ErrorAction SilentlyContinue
 
@@ -18,7 +18,7 @@ function Invoke-AppCatalogProvisioning {
     }
 
     if ($PSCmdlet.ShouldProcess($AppCatalogUrl, 'Register App Catalog site')) {
-        Register-PnPAppCatalogSite -Url $AppCatalogUrl -Owner $AppCatalogOwner -TimeZoneId $AppCatalogTZ -ErrorAction Stop
+        Register-PnPAppCatalogSite -Url $AppCatalogUrl -Owner $Owner -TimeZoneId $TimeZoneId -ErrorAction Stop
         return New-ProvisioningResult -Resource 'App Catalog' -Status 'Created' -Detail "$AppCatalogUrl — ⚠ Wait 30 minutes before Spec 001 SPFx deployment"
     }
 

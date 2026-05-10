@@ -7,6 +7,10 @@
     required by all TheDarkFactory365 specifications. Safe to re-run — produces
     AlreadyExists/AlreadyCorrect for everything already in place.
 
+    All static configuration (tenant URLs, resource names, group names, seed data)
+    is loaded from config.psd1. Runtime values (home location, guest emails) are
+    supplied as parameters.
+
 .PARAMETER Latitude
     WGS84 decimal latitude of the home location (e.g. -36.8509).
 
@@ -24,6 +28,9 @@
 
 .PARAMETER GuestEmails
     Optional array of personal Microsoft account emails to grant Visitor access.
+
+.PARAMETER ConfigPath
+    Path to the configuration file. Defaults to config.psd1 in the script directory.
 
 .PARAMETER WhatIf
     Prints what would happen without making any changes.
@@ -69,16 +76,24 @@ param(
     })]
     [string[]] $GuestEmails = @(),
 
+    [ValidateScript({
+        if (-not (Test-Path $_)) { throw "Config file not found: $_" }
+        return $true
+    })]
+    [string] $ConfigPath = (Join-Path $PSScriptRoot 'config.psd1'),
+
     [switch] $WhatIf
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$ScriptDir    = $PSScriptRoot
-$TenantDomain = 'aiwhisperer.onmicrosoft.com'
-$AdminUrl     = 'https://aiwhisperer-admin.sharepoint.com'
-$SiteUrl      = 'https://aiwhisperer.sharepoint.com/sites/DarkFactory'
+# ─── Load configuration ──────────────────────────────────────────────────────
+$cfg = Import-PowerShellDataFile -Path $ConfigPath -ErrorAction Stop
+
+$TenantDomain = $cfg.Tenant.Domain
+$AdminUrl     = $cfg.Tenant.AdminUrl
+$SiteUrl      = $cfg.Site.Url
 
 # ─── Module imports ──────────────────────────────────────────────────────────
 $modules = @(
@@ -93,7 +108,7 @@ $modules = @(
 )
 
 foreach ($mod in $modules) {
-    $modPath = Join-Path $ScriptDir "modules\$mod.psm1"
+    $modPath = Join-Path $PSScriptRoot "modules\$mod.psm1"
     if (-not (Test-Path $modPath)) {
         Write-Error "Required module not found: $modPath"
         exit 2
@@ -126,43 +141,54 @@ if (-not $WhatIf) {
 }
 
 # ─── Seed data ───────────────────────────────────────────────────────────────
-$seedEntries = @(
-    [PSCustomObject]@{ Key = 'Weather.Latitude';              Value = $Latitude.ToString();                           Category = 'Weather'; Description = 'WGS84 decimal latitude of the home location' }
-    [PSCustomObject]@{ Key = 'Weather.Longitude';             Value = $Longitude.ToString();                          Category = 'Weather'; Description = 'WGS84 decimal longitude of the home location' }
-    [PSCustomObject]@{ Key = 'Weather.Timezone';              Value = $Timezone;                                      Category = 'Weather'; Description = 'IANA timezone identifier, e.g. Pacific/Auckland' }
-    [PSCustomObject]@{ Key = 'Weather.LocationName';          Value = $LocationName;                                  Category = 'Weather'; Description = 'Display name shown in the weather web part' }
-    [PSCustomObject]@{ Key = 'Weather.City';                  Value = $City;                                          Category = 'Weather'; Description = 'City name for display purposes' }
-    [PSCustomObject]@{ Key = 'Weather.ApiBaseUrl';            Value = 'https://api.open-meteo.com/v1/forecast';       Category = 'Weather'; Description = 'Open-Meteo API base URL — override for staging/testing' }
-    [PSCustomObject]@{ Key = 'Weather.TemperatureUnit';       Value = 'celsius';                                      Category = 'Weather'; Description = 'Temperature unit: celsius or fahrenheit' }
-    [PSCustomObject]@{ Key = 'Weather.RefreshIntervalMinutes';Value = '5';                                            Category = 'Weather'; Description = 'Web part auto-refresh interval in minutes' }
+$locationEntries = @(
+    [PSCustomObject]@{ Key = 'Weather.Latitude';     Value = $Latitude.ToString();  Category = 'Weather'; Description = 'WGS84 decimal latitude of the home location' }
+    [PSCustomObject]@{ Key = 'Weather.Longitude';    Value = $Longitude.ToString(); Category = 'Weather'; Description = 'WGS84 decimal longitude of the home location' }
+    [PSCustomObject]@{ Key = 'Weather.Timezone';     Value = $Timezone;             Category = 'Weather'; Description = 'IANA timezone identifier, e.g. Pacific/Auckland' }
+    [PSCustomObject]@{ Key = 'Weather.LocationName'; Value = $LocationName;         Category = 'Weather'; Description = 'Display name shown in the weather web part' }
+    [PSCustomObject]@{ Key = 'Weather.City';         Value = $City;                 Category = 'Weather'; Description = 'City name for display purposes' }
 )
 
+$fixedEntries = $cfg.SeedData.Fixed | ForEach-Object {
+    [PSCustomObject]@{ Key = $_.Key; Value = $_.Value; Category = $_.Category; Description = $_.Description }
+}
+
+$seedEntries = $locationEntries + $fixedEntries
+
 # ─── Provisioning ────────────────────────────────────────────────────────────
-$results       = @()
-$appCatalogUrl = ''
+$results          = @()
+$appCatalogUrl    = ''
 $powerPlatformUrl = ''
 
 # App Catalog
 try {
-    $r = Invoke-AppCatalogProvisioning
+    $r = Invoke-AppCatalogProvisioning `
+        -AppCatalogUrl $cfg.AppCatalog.Url `
+        -Owner        $cfg.AppCatalog.Owner `
+        -TimeZoneId   $cfg.AppCatalog.TimeZoneId
     $results += $r
-    if ($r.Status -in @('Created','AlreadyExists')) {
-        $appCatalogUrl = if ($r.Status -eq 'Created') { 'https://aiwhisperer.sharepoint.com/sites/appcatalog' } else { $r.Detail }
+    if ($r.Status -in @('Created', 'AlreadyExists')) {
+        $appCatalogUrl = if ($r.Status -eq 'Created') { $cfg.AppCatalog.Url } else { $r.Detail }
     }
 } catch {
     $results += New-ProvisioningResult -Resource 'App Catalog' -Status 'Failed' -Detail "$_"
 }
 
-# CSP
-try {
-    $results += Invoke-CSPProvisioning -Source 'https://api.open-meteo.com'
-} catch {
-    $results += New-ProvisioningResult -Resource 'CSP — api.open-meteo.com' -Status 'Failed' -Detail "$_"
+# CSP — loop through all configured sources
+foreach ($source in $cfg.CSP.Sources) {
+    try {
+        $results += Invoke-CSPProvisioning -Source $source
+    } catch {
+        $results += New-ProvisioningResult -Resource "CSP — $source" -Status 'Failed' -Detail "$_"
+    }
 }
 
 # SharePoint site
 try {
-    $results += Invoke-SiteProvisioning -SiteUrl $SiteUrl
+    $results += Invoke-SiteProvisioning `
+        -SiteUrl   $SiteUrl `
+        -SiteTitle $cfg.Site.Title `
+        -SiteAlias $cfg.Site.Alias
 } catch {
     $results += New-ProvisioningResult -Resource 'DarkFactory site' -Status 'Failed' -Detail "$_"
 }
@@ -185,28 +211,41 @@ if (-not $WhatIf) {
 
 # Config list
 try {
-    $results += Invoke-ListProvisioning -SiteUrl $SiteUrl
+    $results += Invoke-ListProvisioning `
+        -SiteUrl    $SiteUrl `
+        -ListName   $cfg.ConfigList.Name `
+        -Categories $cfg.ConfigList.Categories
 } catch {
     $results += New-ProvisioningResult -Resource 'DarkFactory-Settings list' -Status 'Failed' -Detail "$_"
 }
 
 # List permissions
 try {
-    $results += Invoke-ListPermissionsProvisioning -SiteUrl $SiteUrl
+    $results += Invoke-ListPermissionsProvisioning `
+        -SiteUrl      $SiteUrl `
+        -ListName     $cfg.ConfigList.Name `
+        -OwnersGroup  $cfg.Site.Groups.Owners `
+        -MembersGroup $cfg.Site.Groups.Members `
+        -VisitorsGroup $cfg.Site.Groups.Visitors
 } catch {
     $results += New-ProvisioningResult -Resource 'DarkFactory-Settings permissions' -Status 'Failed' -Detail "$_"
 }
 
 # Seed data
 try {
-    $results += Invoke-ConfigSeedProvisioning -SiteUrl $SiteUrl -SeedEntries $seedEntries
+    $results += Invoke-ConfigSeedProvisioning `
+        -SiteUrl     $SiteUrl `
+        -ListName    $cfg.ConfigList.Name `
+        -SeedEntries $seedEntries
 } catch {
     $results += New-ProvisioningResult -Resource 'Config seed data' -Status 'Failed' -Detail "$_"
 }
 
 # Teams team + channel
 try {
-    $results += Invoke-TeamsProvisioning
+    $results += Invoke-TeamsProvisioning `
+        -TeamName    $cfg.Teams.Name `
+        -ChannelName $cfg.Teams.Channel
 } catch {
     $results += New-ProvisioningResult -Resource 'DarkFactory Teams team' -Status 'Failed' -Detail "$_"
 }
@@ -214,7 +253,10 @@ try {
 # Guest access
 if ($GuestEmails.Count -gt 0) {
     try {
-        $results += Invoke-GuestAccessProvisioning -SiteUrl $SiteUrl -GuestEmails $GuestEmails
+        $results += Invoke-GuestAccessProvisioning `
+            -SiteUrl       $SiteUrl `
+            -GuestEmails   $GuestEmails `
+            -VisitorsGroup $cfg.Site.Groups.Visitors
     } catch {
         $results += New-ProvisioningResult -Resource 'Guest access' -Status 'Failed' -Detail "$_"
     }
@@ -234,5 +276,9 @@ try {
 # ─── Report ───────────────────────────────────────────────────────────────────
 Write-Host ''
 Write-Host ('=' * 55)
-$exitCode = Write-ProvisioningReport -Results $results -TenantDomain $TenantDomain -AppCatalogUrl $appCatalogUrl -PowerPlatformUrl $powerPlatformUrl
+$exitCode = Write-ProvisioningReport `
+    -Results          $results `
+    -TenantDomain     $TenantDomain `
+    -AppCatalogUrl    $appCatalogUrl `
+    -PowerPlatformUrl $powerPlatformUrl
 exit $exitCode
