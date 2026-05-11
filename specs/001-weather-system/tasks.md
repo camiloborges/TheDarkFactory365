@@ -1,7 +1,7 @@
 # Tasks: Weather Display System
 
 **Branch**: `001-weather-system` | **Date**: 2026-05-10 | **Plan**: [plan.md](plan.md) | **Spec**: [spec.md](spec.md)
-**SPFx project root**: `dark-factory-weather/` (separate directory, scaffolded in Phase 1)
+**SPFx project root**: `src/dark-factory-weather/` (separate directory, scaffolded in Phase 1)
 
 **Tests**: Included — plan.md explicitly specifies unit tests for all services, mappers, and hooks; jest-axe for all components.
 
@@ -9,7 +9,7 @@
 
 - **[P]**: Can run in parallel (different files, no shared state dependencies)
 - **[Story]**: Which user story this task belongs to ([US1], [US2], [US3])
-- All paths are relative to the `dark-factory-weather/` SPFx project root unless noted otherwise
+- All paths are relative to the `src/dark-factory-weather/` SPFx project root unless noted otherwise
 
 ---
 
@@ -17,7 +17,7 @@
 
 **Purpose**: SPFx project scaffold and tooling configuration. Must complete before any source files are authored.
 
-- [X] T001 Scaffold SPFx project: run `yo @microsoft/sharepoint` in a new `dark-factory-weather/` directory — solution name `dark-factory-weather`, target SharePoint Online only, enable Teams, web part name `DarkFactoryWeather`, framework React (per quickstart.md)
+- [X] T001 Scaffold SPFx project: run `yo @microsoft/sharepoint` in a new `src/dark-factory-weather/` directory — solution name `dark-factory-weather`, target SharePoint Online only, enable Teams, web part name `DarkFactoryWeather`, framework React (per quickstart.md)
 - [X] T002 Install additional dependencies: `npm install @fluentui/react@8` and `npm install --save-dev jest @testing-library/react @testing-library/jest-dom jest-axe jest-fetch-mock`
 - [X] T003 [P] Configure `tsconfig.json` path aliases: `@models/*`, `@services/*`, `@mappers/*`, `@hooks/*`, `@components/*` pointing to `src/webparts/darkFactoryWeather/` subdirectories
 - [X] T004 [P] Configure `config/serve.json` `initialPage` to `https://aiwhisperer.sharepoint.com/sites/DarkFactory/_layouts/workbench.aspx`
@@ -125,7 +125,7 @@
 - [X] T040 [P] Add `jest-axe` accessibility assertions to component tests — test `CurrentConditions`, `ForecastStrip`, `ForecastDays`, `StatusBar` with `toHaveNoViolations()` from jest-axe; fix any reported violations before marking complete
 - [X] T041 Verify keyboard tab order across the web part — expected: `StatusBar` → `CurrentConditions` → `ForecastStrip` → `ForecastDays`; add explicit `tabIndex` or `role` attributes where browser default order is incorrect
 - [X] T042 [P] Update `DarkFactoryWeatherWebPart.manifest.json` — set correct `title`, `description`, and reference a monochrome icon SVG matching Dark Factory aesthetic; required for App Catalog display
-- [ ] T043 Build production package: run `gulp bundle --ship && gulp package-solution --ship` in `dark-factory-weather/`; verify `sharepoint/solution/dark-factory-weather.sppkg` is generated without errors
+- [ ] T043 Build production package: run `gulp bundle --ship && gulp package-solution --ship` in `src/dark-factory-weather/`; verify `sharepoint/solution/dark-factory-weather.sppkg` is generated without errors
 - [ ] T044 Deploy and verify: run App Catalog deploy command from quickstart.md (`Add-PnPApp ... -SkipFeatureDeployment`); create modern SharePoint page, add web part, publish; add as SharePoint tab in Teams DarkFactory → General; run all verification checklist items from quickstart.md
 
 **Checkpoint**: Web part passes jest-axe, keyboard-navigable, renders correctly in both Teams and SharePoint, deployed to App Catalog and live in Teams tab

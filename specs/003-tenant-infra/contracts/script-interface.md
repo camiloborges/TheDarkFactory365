@@ -43,7 +43,7 @@ param(
 All static values are declared in `config.psd1` (PowerShell Data File) alongside the script:
 
 ```
-tenant-infra/
+src/tenant-infra/
 ├── Invoke-DarkFactoryProvisioning.ps1
 └── config.psd1     ← edit this to change tenant, resource names, or add CSP sources
 ```

@@ -86,7 +86,7 @@ specs/001-weather-system/
 ### Source Code (SPFx project — separate from spec repo)
 
 ```
-dark-factory-weather/                    # SPFx project root
+src/dark-factory-weather/                    # SPFx project root
 ├── config/
 │   ├── config.json                      # CDN and bundle config
 │   ├── package-solution.json            # Solution packaging (tenant-wide deploy)

@@ -72,7 +72,7 @@ specs/002-rain-alert-automation/
 ### Source/Infrastructure Code
 
 ```
-rain-alert/
+src/rain-alert/
 ├── logic-app-definition.json       # Logic App workflow definition (ARM/JSON)
 ├── connections/
 │   ├── sharepoint-connection.json  # SharePoint API connection ARM template

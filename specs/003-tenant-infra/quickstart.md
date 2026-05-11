@@ -34,7 +34,7 @@ Get-Module PnP.PowerShell -ListAvailable | Select-Object Name, Version
 
 ### Review config.psd1
 
-Open `tenant-infra/config.psd1` and confirm the static values are correct for your tenant:
+Open `src/tenant-infra/config.psd1` and confirm the static values are correct for your tenant:
 
 | Section | What to verify |
 |---|---|
@@ -73,8 +73,8 @@ New-MgInvitation -InvitedUserEmailAddress "spouse@gmail.com" `
 ## Run the Provisioning Script
 
 ```powershell
-# Clone or navigate to the tenant-infra/ directory
-cd tenant-infra/
+# Clone or navigate to the src/tenant-infra/ directory
+cd src/tenant-infra/
 
 # Full provisioning run
 .\Invoke-DarkFactoryProvisioning.ps1 `

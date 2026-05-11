@@ -74,7 +74,7 @@ specs/003-tenant-infra/
 ### Source Code
 
 ```
-tenant-infra/
+src/tenant-infra/
 ├── Invoke-DarkFactoryProvisioning.ps1    # Entry point — orchestrates all provisioning
 ├── config.psd1                           # Single source of truth for all static configuration
 ├── modules/
@@ -104,7 +104,7 @@ tenant-infra/
 **Goal**: Entry point scaffold, report module, connection helpers. No live tenant operations yet.
 
 #### 1.1 Project scaffold
-- Create `tenant-infra/` directory with `modules/` and `tests/` subdirectories
+- Create `src/tenant-infra/` directory with `modules/` and `tests/` subdirectories
 - Create `Invoke-DarkFactoryProvisioning.ps1` with parameter block (per `contracts/script-interface.md`), `[CmdletBinding(SupportsShouldProcess)]` for `-WhatIf`, module imports, connection orchestration, and completion report output
 
 #### 1.2 Report module (`DarkFactory.Report.psm1`)
