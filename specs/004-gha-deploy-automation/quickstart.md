@@ -142,14 +142,14 @@ In the GitHub repository settings → Secrets and Variables → Actions:
 ### Test CI (PR check)
 
 1. Create a test branch: `git checkout -b test-ci-pipeline`
-2. Make a trivial change in `dark-factory-weather/` (e.g., add a space to a comment)
+2. Make a trivial change in `src/dark-factory-weather/` (e.g., add a space to a comment)
 3. Push and open a PR
 4. Confirm the `CI / build-and-test` check appears and passes
 5. Close the PR without merging
 
 ### Test Deployment (SPFx)
 
-1. Merge a change to `dark-factory-weather/` into `main`
+1. Merge a change to `src/dark-factory-weather/` into `main`
 2. In GitHub → Actions → `Deploy`, watch the run
 3. Confirm `deploy-spfx` succeeds
 4. Check the App Catalog at `https://aiwhisperer.sharepoint.com/sites/appcatalog/_layouts/15/tenantAppCatalog.aspx/manageApps` — the app version should match the new build

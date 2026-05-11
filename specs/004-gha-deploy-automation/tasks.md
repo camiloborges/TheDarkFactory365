@@ -21,7 +21,7 @@
 
 **Purpose**: Identify the Node.js version used by the SPFx project — this value is needed by both `ci-spfx.yml` and `deploy.yml` and must be established before writing either workflow file.
 
-- [ ] T002 Read `dark-factory-weather/package.json` (field `engines.node`) or `dark-factory-weather/.nvmrc` to confirm the Node.js version to pin in `actions/setup-node@v4`; record the version as a comment at the top of each workflow file
+- [ ] T002 Read `src/dark-factory-weather/package.json` (field `engines.node`) or `src/dark-factory-weather/.nvmrc` to confirm the Node.js version to pin in `actions/setup-node@v4`; record the version as a comment at the top of each workflow file
 
 **Checkpoint**: Node.js version confirmed — workflow file authoring can begin
 
@@ -29,9 +29,9 @@
 
 ## Phase 3: User Story 1 — Automated SPFx CI (Priority: P1) 🎯 MVP
 
-**Goal**: Every pull request that touches `dark-factory-weather/` gets an automatic build gate — TypeScript compilation, Jest tests, and `.sppkg` artefact production — reported as a required status check on the PR.
+**Goal**: Every pull request that touches `src/dark-factory-weather/` gets an automatic build gate — TypeScript compilation, Jest tests, and `.sppkg` artefact production — reported as a required status check on the PR.
 
-**Independent Test**: Open a PR with a TypeScript compile error in `dark-factory-weather/` and verify the workflow fails with the error clearly identified. Open a PR with a green build and verify the `.sppkg` artefact is uploaded as `spfx-package` in the Actions run summary.
+**Independent Test**: Open a PR with a TypeScript compile error in `src/dark-factory-weather/` and verify the workflow fails with the error clearly identified. Open a PR with a green build and verify the `.sppkg` artefact is uploaded as `spfx-package` in the Actions run summary.
 
 ### Implementation for User Story 1
 
@@ -40,21 +40,21 @@
   on:
     pull_request:
       paths:
-        - 'dark-factory-weather/**'
+        - 'src/dark-factory-weather/**'
   ```
   Add top-level `name: CI` and a single job `build-and-test` running on `ubuntu-latest`.
 
 - [ ] T004 [US1] Add the install and test steps to `build-and-test` in `.github/workflows/ci-spfx.yml`:
   1. `actions/checkout@v4`
-  2. `actions/setup-node@v4` with `node-version` set to the version from T002 and `cache: 'npm'` with `cache-dependency-path: dark-factory-weather/package-lock.json`
-  3. `run: npm ci` with `working-directory: dark-factory-weather`
-  4. `run: npm test` with `working-directory: dark-factory-weather` — this step MUST fail the job if any Jest test fails
+  2. `actions/setup-node@v4` with `node-version` set to the version from T002 and `cache: 'npm'` with `cache-dependency-path: src/dark-factory-weather/package-lock.json`
+  3. `run: npm ci` with `working-directory: src/dark-factory-weather`
+  4. `run: npm test` with `working-directory: src/dark-factory-weather` — this step MUST fail the job if any Jest test fails
 
 - [ ] T005 [US1] Add the build and upload steps to `build-and-test` in `.github/workflows/ci-spfx.yml`:
-  1. `run: npm run build` with `working-directory: dark-factory-weather` (executes `gulp bundle --ship && gulp package-solution --ship` via the npm script defined in package.json)
-  2. `actions/upload-artifact@v4` uploading `dark-factory-weather/sharepoint/solution/*.sppkg` as artifact name `spfx-package` with `retention-days: 7`
+  1. `run: npm run build` with `working-directory: src/dark-factory-weather` (executes `gulp bundle --ship && gulp package-solution --ship` via the npm script defined in package.json)
+  2. `actions/upload-artifact@v4` uploading `src/dark-factory-weather/sharepoint/solution/*.sppkg` as artifact name `spfx-package` with `retention-days: 7`
 
-**Checkpoint**: `ci-spfx.yml` is complete and independently testable — open a test PR against `dark-factory-weather/` to verify
+**Checkpoint**: `ci-spfx.yml` is complete and independently testable — open a test PR against `src/dark-factory-weather/` to verify
 
 ---
 
@@ -62,13 +62,13 @@
 
 **Goal**: A merge to `main` (or a manual `workflow_dispatch`) deploys whichever of the three specs changed — SPFx to the App Catalog, Logic App definition to Azure, SharePoint seed data to DarkFactory — with no manual CLI commands.
 
-**Independent Test**: Merge a change to `dark-factory-weather/` into `main`. Verify the `deploy-spfx` job runs and the App Catalog shows the updated app version. Then trigger `workflow_dispatch` manually and verify all three deploy jobs run.
+**Independent Test**: Merge a change to `src/dark-factory-weather/` into `main`. Verify the `deploy-spfx` job runs and the App Catalog shows the updated app version. Then trigger `workflow_dispatch` manually and verify all three deploy jobs run.
 
 ### Implementation for User Story 2 — Workflow Shell and Permissions
 
 - [ ] T006 [US2] Create `.github/workflows/deploy.yml` with:
   - `name: Deploy`
-  - `on:` block with `push` to `main` with paths filter covering `dark-factory-weather/**`, `rain-alert/logic-app-definition.json`, `rain-alert/deploy/**`, `specs/003-tenant-infra/**`; plus `workflow_dispatch:` (no paths — runs all jobs)
+  - `on:` block with `push` to `main` with paths filter covering `src/dark-factory-weather/**`, `src/rain-alert/logic-app-definition.json`, `src/rain-alert/deploy/**`, `specs/003-tenant-infra/**`; plus `workflow_dispatch:` (no paths — runs all jobs)
   - Top-level `permissions: { id-token: write, contents: read }` (required for OIDC token exchange in `azure/login@v2`)
 
 ### Implementation for User Story 2 — detect-changes Job
@@ -76,9 +76,9 @@
 - [ ] T007 [US2] Add the `detect-changes` job to `.github/workflows/deploy.yml`:
   - Runs on `ubuntu-latest`, always runs
   - Uses `dorny/paths-filter@v3` with filters:
-    - `spfx: ['dark-factory-weather/**']`
-    - `logic-app: ['rain-alert/logic-app-definition.json', 'rain-alert/deploy/**']`
-    - `sharepoint-seed: ['rain-alert/deploy/Invoke-AlertSeedData.ps1', 'specs/003-tenant-infra/**']`
+    - `spfx: ['src/dark-factory-weather/**']`
+    - `logic-app: ['src/rain-alert/logic-app-definition.json', 'src/rain-alert/deploy/**']`
+    - `sharepoint-seed: ['src/rain-alert/deploy/Invoke-AlertSeedData.ps1', 'specs/003-tenant-infra/**']`
   - Exposes job outputs: `spfx`, `logic-app`, `sharepoint-seed` from the filter step outputs
 
 ### Implementation for User Story 2 — build-spfx Job
@@ -127,8 +127,8 @@
          --url "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Web/connections/$TEAMS_CONNECTION_NAME?api-version=2016-06-01" \
          --query "properties.connectionRuntimeUrl" -o tsv)
        ```
-       Then substitute placeholders in `rain-alert/deploy/connection-parameters.json.template` using `sed` (replacing `{SUBSCRIPTION_ID}`, `{RESOURCE_GROUP}`, `{SHAREPOINT_RUNTIME_URL}`, `{TEAMS_RUNTIME_URL}`) and write output to `/tmp/connection-parameters.json`
-    4. `az logic workflow update --resource-group $AZURE_RESOURCE_GROUP --name $LOGIC_APP_NAME --definition @rain-alert/logic-app-definition.json --parameters @/tmp/connection-parameters.json`
+       Then substitute placeholders in `src/rain-alert/deploy/connection-parameters.json.template` using `sed` (replacing `{SUBSCRIPTION_ID}`, `{RESOURCE_GROUP}`, `{SHAREPOINT_RUNTIME_URL}`, `{TEAMS_RUNTIME_URL}`) and write output to `/tmp/connection-parameters.json`
+    4. `az logic workflow update --resource-group $AZURE_RESOURCE_GROUP --name $LOGIC_APP_NAME --definition @src/rain-alert/logic-app-definition.json --parameters @/tmp/connection-parameters.json`
     5. Print the post-deploy reminder to `$GITHUB_STEP_SUMMARY`:
        ```
        Logic App workflow definition deployed successfully.
@@ -155,7 +155,7 @@
          -ClientId $env:AZURE_CLIENT_ID `
          -CertificateBase64Encoded $env:SP_CERT_BASE64 `
          -Tenant $env:AZURE_TENANT_ID
-       & rain-alert/deploy/Invoke-AlertSeedData.ps1 -SiteUrl $env:SHAREPOINT_SITE_URL
+       & src/rain-alert/deploy/Invoke-AlertSeedData.ps1 -SiteUrl $env:SHAREPOINT_SITE_URL
        ```
     4. Set env vars: `SHAREPOINT_SITE_URL: ${{ vars.SHAREPOINT_SITE_URL }}`, `AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}`, `SP_CERT_BASE64: ${{ secrets.SP_CERT_BASE64 }}`, `AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}`
 
@@ -259,8 +259,8 @@ Then: T014  (verify permissions blocks)
 
 ## Notes
 
-- No source files in `dark-factory-weather/`, `rain-alert/`, or `specs/` are modified by this feature
+- No source files in `src/dark-factory-weather/`, `src/rain-alert/`, or `specs/` are modified by this feature
 - Existing scripts (`Deploy-AlertInfrastructure.ps1`, `Invoke-AlertSeedData.ps1`) are called as-is
 - The one-time service principal setup in `quickstart.md` is NOT a task here — it is administrator pre-work done outside the pipeline
 - PnP.PowerShell version `2.12.0` is a placeholder — use the latest stable 2.x release at time of implementation and update both the workflow file and this tasks.md
-- The `connection-parameters.json.template` file lives at `rain-alert/deploy/connection-parameters.json.template` and is already committed — T010 only reads and substitutes it at runtime, never commits the populated version
+- The `connection-parameters.json.template` file lives at `src/rain-alert/deploy/connection-parameters.json.template` and is already committed — T010 only reads and substitutes it at runtime, never commits the populated version

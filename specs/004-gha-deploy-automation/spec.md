@@ -19,10 +19,10 @@ As the administrator, I want every pull request to automatically build and valid
 
 **Acceptance Scenarios**:
 
-1. **Given** a pull request is opened or updated, **When** files under `dark-factory-weather/` are changed, **Then** the workflow runs `npm install`, executes all unit tests, and bundles the production package — reporting pass or fail on the PR.
+1. **Given** a pull request is opened or updated, **When** files under `src/dark-factory-weather/` are changed, **Then** the workflow runs `npm install`, executes all unit tests, and bundles the production package — reporting pass or fail on the PR.
 2. **Given** a pull request has a TypeScript compilation error, **When** the build workflow runs, **Then** the workflow fails with an error message identifying the failing file, blocking merge.
 3. **Given** all unit tests pass and the package builds successfully, **When** the build workflow completes, **Then** the compiled `.sppkg` artefact is uploaded and available for the deployment job to use — no re-build required.
-4. **Given** no files under `dark-factory-weather/` are changed in a PR, **When** the workflow evaluates its trigger, **Then** the SPFx build job is skipped to avoid wasting CI minutes.
+4. **Given** no files under `src/dark-factory-weather/` are changed in a PR, **When** the workflow evaluates its trigger, **Then** the SPFx build job is skipped to avoid wasting CI minutes.
 
 ---
 
@@ -32,12 +32,12 @@ As the administrator, I want to deploy all three specs to my tenant by merging t
 
 **Why this priority**: The whole point of the automation spec is to remove the manual deployment burden. After initial infrastructure setup (which remains manual), any subsequent change — a web part update, a new config key, a Logic App workflow change — should deploy itself.
 
-**Independent Test**: Merge a change to `dark-factory-weather/` into main. The deployment workflow should upload the new `.sppkg` to the SharePoint App Catalog and update the app without any manual steps.
+**Independent Test**: Merge a change to `src/dark-factory-weather/` into main. The deployment workflow should upload the new `.sppkg` to the SharePoint App Catalog and update the app without any manual steps.
 
 **Acceptance Scenarios**:
 
-1. **Given** a merge to main includes changes to `dark-factory-weather/`, **When** the deployment workflow runs, **Then** the updated `.sppkg` is uploaded to the SharePoint tenant App Catalog and the app version is updated — without the administrator opening a browser.
-2. **Given** a merge to main includes changes to `rain-alert/logic-app-definition.json`, **When** the deployment workflow runs, **Then** the updated Logic App workflow definition is deployed to `la-darkfactory-rain-alert` in `rg-darkfactory` — without the administrator running any CLI command.
+1. **Given** a merge to main includes changes to `src/dark-factory-weather/`, **When** the deployment workflow runs, **Then** the updated `.sppkg` is uploaded to the SharePoint tenant App Catalog and the app version is updated — without the administrator opening a browser.
+2. **Given** a merge to main includes changes to `src/rain-alert/logic-app-definition.json`, **When** the deployment workflow runs, **Then** the updated Logic App workflow definition is deployed to `la-darkfactory-rain-alert` in `rg-darkfactory` — without the administrator running any CLI command.
 3. **Given** a merge to main includes changes to the tenant provisioning scripts under `specs/003-tenant-infra/`, **When** the deployment workflow runs, **Then** the SharePoint seed script runs idempotently against the DarkFactory site — adding missing config rows, skipping existing ones.
 4. **Given** the deployment workflow is triggered manually via the GitHub Actions UI, **When** the administrator selects a target environment and confirms, **Then** all three deployment jobs run in the correct dependency order regardless of which files changed.
 5. **Given** a deployment job fails mid-run (e.g., Azure authentication error), **When** the workflow terminates, **Then** completed steps are not re-run on the next trigger, and the specific failing step is clearly reported in the workflow summary.
@@ -74,11 +74,11 @@ As the administrator, I want all deployment credentials stored as GitHub reposit
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST run an automated build and test job for the SPFx web part on every pull request that touches `dark-factory-weather/`.
+- **FR-001**: The system MUST run an automated build and test job for the SPFx web part on every pull request that touches `src/dark-factory-weather/`.
 - **FR-002**: The build job MUST execute all unit tests and fail the workflow if any test fails.
 - **FR-003**: The build job MUST produce a deployable `.sppkg` artefact and upload it for use by the deployment job without rebuilding.
-- **FR-004**: The system MUST deploy the SPFx package to the SharePoint tenant App Catalog when a change to `dark-factory-weather/` is merged to main.
-- **FR-005**: The system MUST deploy the Logic App workflow definition to Azure when a change to `rain-alert/logic-app-definition.json` is merged to main.
+- **FR-004**: The system MUST deploy the SPFx package to the SharePoint tenant App Catalog when a change to `src/dark-factory-weather/` is merged to main.
+- **FR-005**: The system MUST deploy the Logic App workflow definition to Azure when a change to `src/rain-alert/logic-app-definition.json` is merged to main.
 - **FR-006**: The system MUST run the SharePoint seed script idempotently when provisioning-related files change on main.
 - **FR-007**: The system MUST support a manual trigger that runs all deployment jobs regardless of which files changed, for use during initial setup and ad-hoc re-deployments.
 - **FR-008**: The system MUST authenticate to Azure using a service principal with certificate-based auth (not client secret) so that credentials can be rotated without changing workflow files.

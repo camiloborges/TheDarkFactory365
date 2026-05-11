@@ -11,7 +11,7 @@ The pull request validation workflow. Runs on every PR that touches the SPFx web
 
 | Property | Value |
 |---|---|
-| Trigger | `pull_request` on paths `dark-factory-weather/**` |
+| Trigger | `pull_request` on paths `src/dark-factory-weather/**` |
 | Runner | `ubuntu-latest` |
 | Artefact produced | `spfx-package` (`.sppkg` file, retained 7 days) |
 
@@ -28,7 +28,7 @@ The deployment workflow. Runs on push to `main` or manual trigger.
 
 | Property | Value |
 |---|---|
-| Trigger | `push` to `main` on paths `dark-factory-weather/**`, `rain-alert/**`; `workflow_dispatch` (no path filter) |
+| Trigger | `push` to `main` on paths `src/dark-factory-weather/**`, `src/rain-alert/**`; `workflow_dispatch` (no path filter) |
 | Runner | `ubuntu-latest` |
 | Environment | `production` (required for deploy jobs — enables required reviewers if configured) |
 
@@ -87,9 +87,9 @@ Defines which workflow jobs run for a given push to `main`.
 
 | Filter name | Paths watched | Triggers job(s) |
 |---|---|---|
-| `spfx` | `dark-factory-weather/**` | `build-spfx`, `deploy-spfx` |
-| `logic-app` | `rain-alert/logic-app-definition.json`, `rain-alert/deploy/**` | `deploy-logic-app` |
-| `sharepoint-seed` | `rain-alert/deploy/Invoke-AlertSeedData.ps1`, `specs/003-tenant-infra/**` | `deploy-sharepoint-seed` |
+| `spfx` | `src/dark-factory-weather/**` | `build-spfx`, `deploy-spfx` |
+| `logic-app` | `src/rain-alert/logic-app-definition.json`, `src/rain-alert/deploy/**` | `deploy-logic-app` |
+| `sharepoint-seed` | `src/rain-alert/deploy/Invoke-AlertSeedData.ps1`, `specs/003-tenant-infra/**` | `deploy-sharepoint-seed` |
 
 On `workflow_dispatch`, the path filter is bypassed and all jobs run.
 
@@ -102,7 +102,7 @@ The compiled SPFx package produced by `build-spfx` and consumed by `deploy-spfx`
 | Attribute | Value |
 |---|---|
 | Artefact name | `spfx-package` |
-| Contents | `dark-factory-weather/sharepoint/solution/*.sppkg` |
+| Contents | `src/dark-factory-weather/sharepoint/solution/*.sppkg` |
 | Retention | 7 days |
 | Produced by | `build-spfx` job |
 | Consumed by | `deploy-spfx` job (same workflow run) |

@@ -71,7 +71,7 @@ specs/004-gha-deploy-automation/
     └── deploy.yml             # Deploy on push to main or workflow_dispatch
 ```
 
-No changes to `dark-factory-weather/`, `rain-alert/`, or `specs/` source files.
+No changes to `src/dark-factory-weather/`, `src/rain-alert/`, or `specs/` source files.
 Existing deploy scripts (`Deploy-AlertInfrastructure.ps1`, `Invoke-AlertSeedData.ps1`) are called as-is.
 
 ---
@@ -80,17 +80,17 @@ Existing deploy scripts (`Deploy-AlertInfrastructure.ps1`, `Invoke-AlertSeedData
 
 ### Phase 1 — CI Workflow (`ci-spfx.yml`)
 
-**Goal**: Every PR touching `dark-factory-weather/` gets automatic build validation and test results.
+**Goal**: Every PR touching `src/dark-factory-weather/` gets automatic build validation and test results.
 
-**Trigger**: `pull_request` with `paths: dark-factory-weather/**`
+**Trigger**: `pull_request` with `paths: src/dark-factory-weather/**`
 
 **Job: `build-and-test`**:
 1. `actions/checkout@v4`
-2. `actions/setup-node@v4` with Node.js version matching `dark-factory-weather/.nvmrc` or `package.json engines`
-3. `npm ci` in `dark-factory-weather/`
+2. `actions/setup-node@v4` with Node.js version matching `src/dark-factory-weather/.nvmrc` or `package.json engines`
+3. `npm ci` in `src/dark-factory-weather/`
 4. `npm test` — runs Jest test suite; fails workflow on test failure
 5. `npm run build` (or `gulp bundle --ship && gulp package-solution --ship`) — produces `.sppkg`
-6. `actions/upload-artifact@v4` — uploads `dark-factory-weather/sharepoint/solution/*.sppkg` as `spfx-package`, retention 7 days
+6. `actions/upload-artifact@v4` — uploads `src/dark-factory-weather/sharepoint/solution/*.sppkg` as `spfx-package`, retention 7 days
 
 ---
 
@@ -104,9 +104,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'dark-factory-weather/**'
-      - 'rain-alert/logic-app-definition.json'
-      - 'rain-alert/deploy/**'
+      - 'src/dark-factory-weather/**'
+      - 'src/rain-alert/logic-app-definition.json'
+      - 'src/rain-alert/deploy/**'
       - 'specs/003-tenant-infra/**'
   workflow_dispatch:
 ```
@@ -136,7 +136,7 @@ Condition: `needs.detect-changes.outputs.spfx == 'true' || github.event_name == 
 Steps:
 1. Checkout
 2. Setup Node.js
-3. `npm ci` in `dark-factory-weather/`
+3. `npm ci` in `src/dark-factory-weather/`
 4. `npm test` — must pass before build
 5. Build production bundle
 6. Upload `.sppkg` artefact
@@ -171,7 +171,7 @@ Steps:
    ```
 4. Query `connectionRuntimeUrl` for Teams connection (same pattern)
 5. Populate `connection-parameters.json.template` with real values (subscription ID, resource group, connection runtime URLs)
-6. `az logic workflow update --resource-group $RG --name $LOGIC_APP --definition @rain-alert/logic-app-definition.json --parameters @connection-parameters.json`
+6. `az logic workflow update --resource-group $RG --name $LOGIC_APP --definition @src/rain-alert/logic-app-definition.json --parameters @connection-parameters.json`
 7. Print post-deploy reminder (manual gates: authorise connections, enable Logic App)
 
 #### Job 5: `deploy-sharepoint-seed`
@@ -182,7 +182,7 @@ Needs: `detect-changes`
 Steps:
 1. Checkout
 2. Install PnP.PowerShell (pinned version)
-3. Run `rain-alert/deploy/Invoke-AlertSeedData.ps1` with `-SiteUrl ${{ vars.SHAREPOINT_SITE_URL }}` — uses `SP_CERT_BASE64` for auth
+3. Run `src/rain-alert/deploy/Invoke-AlertSeedData.ps1` with `-SiteUrl ${{ vars.SHAREPOINT_SITE_URL }}` — uses `SP_CERT_BASE64` for auth
 4. Print idempotency summary (items added vs skipped)
 
 ---

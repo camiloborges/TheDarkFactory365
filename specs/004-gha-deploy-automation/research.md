@@ -66,7 +66,7 @@ Connect-PnPOnline `
 
 **Decision**: Two workflow files — `ci-spfx.yml` (PR validation) and `deploy.yml` (deployment).
 
-**Rationale**: Separating CI from deployment keeps responsibilities clear and avoids running deployment logic on every PR. `ci-spfx.yml` runs only when `dark-factory-weather/**` files change on a PR — it builds, tests, and uploads the `.sppkg` artefact. `deploy.yml` runs on push to `main` or `workflow_dispatch` and performs all three deployments.
+**Rationale**: Separating CI from deployment keeps responsibilities clear and avoids running deployment logic on every PR. `ci-spfx.yml` runs only when `src/dark-factory-weather/**` files change on a PR — it builds, tests, and uploads the `.sppkg` artefact. `deploy.yml` runs on push to `main` or `workflow_dispatch` and performs all three deployments.
 
 **Path-conditional jobs in `deploy.yml`**: `dorny/paths-filter@v3` is used to detect which directories changed. Each deployment job uses an `if:` condition to skip itself when its files didn't change — except when triggered by `workflow_dispatch`, which runs all jobs unconditionally.
 

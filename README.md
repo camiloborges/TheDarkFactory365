@@ -20,7 +20,7 @@ I'm a former **Microsoft Certified Master** (SharePoint 2010 — back when that 
 
 The twist: I'm doing it with AI as a genuine collaborator. Every spec, plan, and implementation in this repo was produced through **Claude Code** using a structured workflow called Spec Kit. The AI doesn't replace engineering judgment — it enforces it. You still have to know what you're building and why. But the spec process keeps the AI grounded and keeps the output traceable.
 
-This repo is the evidence of that experiment. The blog series in [`blogs/m365/`](blogs/m365/) runs alongside it and explains the thinking.
+This repo is the evidence of that experiment. The blog series in [`docs/blog/`](docs/blog/) runs alongside it and explains the thinking.
 
 ---
 
@@ -28,7 +28,7 @@ This repo is the evidence of that experiment. The blog series in [`blogs/m365/`]
 
 Three specifications, implemented end-to-end and working against a real Microsoft 365 Business Basic tenant.
 
-### Spec 003 — Tenant Infrastructure (`tenant-infra/`)
+### Spec 003 — Tenant Infrastructure (`src/tenant-infra/`)
 
 A single idempotent PowerShell provisioning script that brings a fresh M365 tenant to the state every other spec depends on. Run it once; re-run it safely forever.
 
@@ -46,7 +46,7 @@ All static configuration (tenant URLs, resource names, group names, CSP sources)
 
 ---
 
-### Spec 001 — Weather Display System (`weather-webpart/`)
+### Spec 001 — Weather Display System (`src/dark-factory-weather/`)
 
 A dark-themed SPFx web part pinned as a Teams tab in the DarkFactory team. Shows current weather conditions and a multi-day forecast using the Open-Meteo API — free, no API key, no registration required.
 
@@ -64,7 +64,7 @@ Reads home coordinates from the `DarkFactory-Settings` SharePoint list. Auto-ref
 
 ---
 
-### Spec 002 — Rain Alert Automation (`rain-alert/`)
+### Spec 002 — Rain Alert Automation (`src/rain-alert/`)
 
 An Azure Logic App (Consumption plan) that polls Open-Meteo every 5 minutes and sends a Teams message when it's raining now or rain is forecast in the next 48 hours.
 
@@ -165,15 +165,16 @@ Start with the Spec 003 quickstart: [`specs/003-tenant-infra/quickstart.md`](spe
 
 ```
 TheDarkFactory365/
+├── src/                      # Solution implementations
+│   ├── dark-factory-weather/ # Spec 001 — SPFx web part
+│   ├── rain-alert/           # Spec 002 — Azure Logic App ARM template
+│   └── tenant-infra/         # Spec 003 — PowerShell provisioning script + modules + tests
 ├── specs/                    # Specification artifacts for every feature
 │   ├── 001-weather-system/
 │   ├── 002-rain-alert-automation/
 │   └── 003-tenant-infra/
-├── tenant-infra/             # Spec 003 — PowerShell provisioning script + modules + tests
-├── weather-webpart/          # Spec 001 — SPFx web part source
-├── rain-alert/               # Spec 002 — Azure Logic App ARM template
-├── blogs/m365/               # Blog series: SDD meets Microsoft 365
-├── docs/                     # Release notes
+├── docs/                     # Release notes and blog series
+│   └── blog/                 # Blog series: SDD meets Microsoft 365
 └── .specify/                 # Spec Kit configuration, templates, and project constitution
 ```
 
@@ -192,10 +193,10 @@ TheDarkFactory365/
 
 ## Blog series
 
-The [`blogs/m365/`](blogs/m365/) directory runs alongside the implementation and explains the reasoning behind the SDD approach in the M365 context:
+The [`docs/blog/`](docs/blog/) directory runs alongside the implementation and explains the reasoning behind the SDD approach in the M365 context:
 
-- [Part 0 — SDD Meets Office 365: Why SharePoint Development Needs a Discipline Reset](blogs/m365/m365-part-0-sdd-meets-office365.md)
-- [Part 1 — The Weather Web Part Specification](blogs/m365/m365-part-1-weather-webpart-spec.md)
+- [Part 0 — SDD Meets Office 365: Why SharePoint Development Needs a Discipline Reset](docs/blog/m365-part-0-sdd-meets-office365.md)
+- [Part 1 — The Weather Web Part Specification](docs/blog/m365-part-1-weather-webpart-spec.md)
 
 ---
 
