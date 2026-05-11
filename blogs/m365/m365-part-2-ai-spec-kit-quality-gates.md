@@ -3,19 +3,17 @@
 _Part 2 of the M365 series_
 
 **TL;DR**  
-Part 0 promised a GitHub-Issues-based Spec Kit. We didn't use it. We built something better: a set of AI skills in Claude Code that enforce the full SDD gate sequence through conversation and file output, with a project constitution that acts as a standing compliance check on every feature. This post is the honest account of what that looks like in practice.
+SDD only works if the spec process is enforced, not aspirational. Under pressure, the spec gets skipped — or written after the fact. This post walks through the Claude Code Spec Kit: the set of AI skills we built to keep quality gates mandatory from the first requirement through to the PR, including a gate most workflows don't even name.
 
 ---
 
-## 1. Why We Didn't Use GitHub Issues
+## 1. The Problem with Aspirational Process
 
-Part 0 laid out a workflow where requirements live as GitHub Issues, research as Discussions, and pull requests reference the spec issues they fulfil. It's a reasonable approach, and plenty of teams use it. We tried it mentally for about five minutes and then didn't.
+Specification-Driven Development has a familiar failure mode. The team commits to writing specs. The first feature gets a good one. The second gets a shorter one. By the fourth, the spec is a one-paragraph Jira ticket that someone wrote after the code was already done.
 
-The problem is friction at the writing stage. GitHub Issues are optimised for tracking — not for thinking. The GIVEN/WHEN/THEN structure, the surface matrix, the architecture decision records, the research decisions — none of these fit naturally into issue templates. You end up with either a wall of prose in one issue or a scattered mess of linked issues that's hard to read as a coherent specification.
+This is not a discipline failure. It is a tooling failure. If the process lives in a wiki page that someone has to remember to follow, it will be skipped the moment a deadline appears. The gates have to be structural — the next step literally cannot happen until the previous one is done.
 
-What we wanted was a workflow where the spec lived as readable, reviewable files alongside the code — where a developer (or an AI) could read `spec.md`, `plan.md`, and `tasks.md` and know exactly what to build without context from anywhere else. GitHub Pull Requests still carry the code review and the merge decision. But the spec lives in the repo.
-
-The tooling that makes this work is Claude Code and a set of skills we call the Spec Kit.
+That is what the Spec Kit is: a set of Claude Code skills that run the SDD gate sequence and produce spec artifacts as files. The skills live in `.claude/skills/` alongside the code. The spec files live in `specs/` alongside the code. There is no separate system to remember.
 
 ---
 

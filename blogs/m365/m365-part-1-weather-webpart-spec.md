@@ -7,10 +7,6 @@ Before a single TypeScript file is created, we write the full specification for 
 
 ---
 
-> **A note on the tooling**: Part 0 described a GitHub-Issues-based approach to SDD. When we actually built this, we went in a different direction — spec files in the repository, driven by AI-assisted skills in Claude Code. The reasons for that choice, and what the workflow actually looks like, are in [Part 2](./m365-part-2-ai-spec-kit-quality-gates.md). This post shows the output: the specification that the workflow produced.
-
----
-
 ## 1. The Specification Header
 
 Every Spec Kit feature starts with a `spec.md` file that anchors all requirements. The header establishes scope, priority, and the decisions already made before requirements are written.
