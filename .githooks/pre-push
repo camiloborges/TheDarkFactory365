@@ -39,7 +39,7 @@ while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
     fi
 
     echo "Scanning commits ($log_opts) before push to $remote..."
-    gitleaks git --source . --log-opts "$log_opts" --config .gitleaks.toml --redact
+    gitleaks git . --log-opts "$log_opts" --config .gitleaks.toml --redact
     SCAN_STATUS=$?
 
     if [ $SCAN_STATUS -ne 0 ]; then
