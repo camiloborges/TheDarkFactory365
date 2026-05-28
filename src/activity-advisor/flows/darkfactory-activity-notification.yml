@@ -19,18 +19,9 @@ triggers:
     inputs:
       siteAddress: "@environmentVariables('DARKFACTORY_SP_SITE_URL')"
       listName: DarkFactory-ActivityRequests
+      filterQuery: "Status eq 'Complete'"
 
 actions:
-  - id: filter_status_complete
-    type: condition
-    displayName: Is Status = Complete?
-    inputs:
-      expression:
-        equals:
-          - "@triggerOutputs()?['body/Status/Value']"
-          - Complete
-    runAfter: []
-
   - id: compose_risk_emoji
     type: compose
     displayName: Compose risk emoji
@@ -39,9 +30,7 @@ actions:
         @{if(equals(triggerOutputs()?['body/RiskLevel/Value'], 'Safe'), '🟢 Safe',
           if(equals(triggerOutputs()?['body/RiskLevel/Value'], 'Caution'), '🟡 Caution',
             '🔴 Unsafe'))}
-    runAfter:
-      filter_status_complete:
-        - Succeeded
+    runAfter: []
 
   - id: compose_message
     type: compose

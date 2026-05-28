@@ -13,12 +13,14 @@ namespace SkWeatherAgent.Plugins;
 public class ActivityAssessmentPlugin
 {
     private readonly WeatherPlugin _weatherPlugin;
-    private readonly Kernel _kernel;
+    private readonly IChatCompletionService _chatService;
 
-    public ActivityAssessmentPlugin(WeatherPlugin weatherPlugin, Kernel kernel)
+    // Inject IChatCompletionService directly — avoids singleton Kernel dependency.
+    // IChatCompletionService is stateless and safe to hold as a singleton.
+    public ActivityAssessmentPlugin(WeatherPlugin weatherPlugin, IChatCompletionService chatService)
     {
         _weatherPlugin = weatherPlugin;
-        _kernel = kernel;
+        _chatService   = chatService;
     }
 
     [KernelFunction("assess_activity")]
@@ -80,7 +82,6 @@ public class ActivityAssessmentPlugin
             - Unsafe: conditions pose a meaningful risk to health or safety for this activity
             """;
 
-        var chat = _kernel.GetRequiredService<IChatCompletionService>();
         var history = new ChatHistory();
         history.AddUserMessage(prompt);
 
@@ -89,7 +90,7 @@ public class ActivityAssessmentPlugin
             ResponseFormat = "json_object"
         };
 
-        var response = await chat.GetChatMessageContentAsync(history, settings, _kernel, cancellationToken);
+        var response = await _chatService.GetChatMessageContentAsync(history, settings, cancellationToken: cancellationToken);
         var content = response.Content ?? throw new InvalidOperationException("assessment_failed: GPT returned empty content.");
 
         // ── Step 5: Parse structured response ─────────────────────────────────

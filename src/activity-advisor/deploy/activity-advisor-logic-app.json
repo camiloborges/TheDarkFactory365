@@ -22,6 +22,12 @@
     },
     "AgentEndpointUrl": {
       "type": "string"
+    },
+    "workflowDefinition": {
+      "type": "object",
+      "metadata": {
+        "description": "The Logic App workflow definition object. Pass the contents of logic-app-definition.json as a parameter. Use: --parameters workflowDefinition=@../logic-app-definition.json"
+      }
     }
   },
   "resources": [
@@ -32,7 +38,7 @@
       "location": "[parameters('location')]",
       "properties": {
         "state": "Disabled",
-        "definition": "[json(loadTextContent('activity-advisor-logic-app-definition.json'))]",
+        "definition": "[parameters('workflowDefinition')]",
         "parameters": {
           "SharePointSiteUrl": { "value": "[parameters('SharePointSiteUrl')]" },
           "ActivityAdvisorApiKey": { "value": "[parameters('ActivityAdvisorApiKey')]" },
