@@ -11,14 +11,16 @@
 
 if ! command -v gitleaks > /dev/null 2>&1; then
     echo ""
-    echo "WARNING: gitleaks not found on PATH — pre-push secret scan skipped."
-    echo "         Install gitleaks to enable local scanning:"
-    echo "           Windows : winget install gitleaks.gitleaks"
-    echo "           macOS   : brew install gitleaks"
-    echo "         The GitHub Actions ci-secret-scan workflow will catch secrets"
-    echo "         if they reach a pull request or push to main."
+    echo "BLOCKED: gitleaks is not installed — push rejected."
     echo ""
-    exit 0
+    echo "  Secret scanning is mandatory. Install gitleaks before pushing:"
+    echo "    Windows : winget install gitleaks.gitleaks"
+    echo "    macOS   : brew install gitleaks"
+    echo "    Linux   : https://github.com/gitleaks/gitleaks#installing"
+    echo ""
+    echo "  After installation, re-run: pwsh setup-hooks.ps1"
+    echo ""
+    exit 1
 fi
 
 remote="$1"

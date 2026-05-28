@@ -16,9 +16,7 @@
       macOS   : brew install gitleaks
       Linux   : https://github.com/gitleaks/gitleaks#installing
 
-    Without gitleaks, the hooks still run but emit a warning and allow the
-    operation through. The GitHub Actions ci-secret-scan workflow is the
-    safety net in that case.
+    Without gitleaks, ALL commits and pushes are blocked. Install it first.
 
 .EXAMPLE
     pwsh setup-hooks.ps1
@@ -53,16 +51,17 @@ if (Get-Command gitleaks -ErrorAction SilentlyContinue) {
     Write-Host "gitleaks $version detected — scanning is active." -ForegroundColor Green
 }
 else {
-    Write-Warning @'
-gitleaks not found on PATH. Hooks will warn (not block) until it is installed.
+    Write-Error @'
+gitleaks is required and was not found on PATH.
 
-Install gitleaks:
+Install gitleaks before committing or pushing:
   Windows : winget install gitleaks.gitleaks
   macOS   : brew install gitleaks
   Linux   : https://github.com/gitleaks/gitleaks#installing
 
-After installation, re-run this script or simply open a new terminal.
+After installation, open a new terminal and re-run this script.
 '@
+    exit 1
 }
 
 Write-Host ""
