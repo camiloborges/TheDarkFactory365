@@ -1,0 +1,51 @@
+title = "TheDarkFactory365 — Gitleaks Secret Scan Config"
+
+[extend]
+# Build on the official default ruleset (thousands of patterns).
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Repo-level allowlist — known safe patterns that trigger false positives.
+# Add new entries here rather than silencing an entire file.
+# ---------------------------------------------------------------------------
+
+[[allowlists]]
+description = "Empty-string placeholders in appsettings and config files"
+regexes = [
+    # "ApiKey": "" — intentionally empty in checked-in appsettings.json
+    '''(?i)["']api[_-]?key["']\s*:\s*["']{2}''',
+]
+
+[[allowlists]]
+description = "ARM and Logic App template placeholder tokens"
+regexes = [
+    # {PLACEHOLDER} style tokens used throughout deploy templates and canvas YAML
+    '''\{[A-Z][A-Z0-9_]*\}''',
+    # Logic App @parameters() and @environmentVariables() references — not real values
+    '''@parameters\(''',
+    '''@environmentVariables\(''',
+    # Logic App ARM workflowDefinition parameter reference
+    '''workflowDefinition\s*=\s*@''',
+]
+
+[[allowlists]]
+description = "GitHub Actions secrets and vars expressions — not real credential values"
+regexes = [
+    '''\$\{\{\s*(secrets|vars)\.[A-Z_]+\s*\}\}''',
+]
+
+[[allowlists]]
+description = "PowerShell environment variable references — not real credential values"
+regexes = [
+    # $env:SP_CERT_BASE64, $env:AZURE_CLIENT_ID, etc.
+    '''\$env:[A-Z][A-Z0-9_]+''',
+    # Connect-PnPOnline -CertificateBase64Encoded $env:... pattern
+    '''-CertificateBase64Encoded\s+\$env:''',
+]
+
+[[allowlists]]
+description = "Local development endpoints — not real credentials"
+regexes = [
+    # localhost and 127.0.0.1 URLs in config and tests
+    '''https?://(localhost|127\.0\.0\.1)(:\d+)?''',
+]
