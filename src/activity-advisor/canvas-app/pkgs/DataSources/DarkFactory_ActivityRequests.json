@@ -1,0 +1,12 @@
+{
+  "Type": "SharePoint",
+  "Name": "DarkFactory_ActivityRequests",
+  "TableName": "DarkFactory-ActivityRequests",
+  "IsReadOnly": false,
+  "ConnectionRef": {
+    "DisplayName": "DarkFactory SharePoint",
+    "Endpoint": "{DARKFACTORY_SP_SITE_URL}",
+    "Type": "SharePoint"
+  },
+  "_comment": "After importing the .msapp, reconnect this data source in Power Apps Studio: Data > Add data > SharePoint > select your DarkFactory site > DarkFactory-ActivityRequests. The Endpoint placeholder above will be replaced by your actual site URL."
+}
