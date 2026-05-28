@@ -1,0 +1,82 @@
+# DarkFactory Activity Notification — Teams message on assessment complete
+# Standard connectors only — no Premium licence required.
+# Works on M365 Business Basic.
+#
+# Environment variables required:
+#   DARKFACTORY_SP_SITE_URL         — URL of the DarkFactory SharePoint site
+#   NOTIFICATION_FALLBACK_RECIPIENT — fallback email when RequestedBy cannot be resolved
+#                                     (reads from DarkFactory-Settings at runtime if blank)
+
+name: DarkFactory Activity Advisor — Teams Notification
+description: >
+  Sends a Teams message to the activity requester when their assessment is complete.
+  Triggers on DarkFactory-ActivityRequests item modification, filtered to Status = Complete.
+  Uses standard SharePoint and Teams connectors — no Premium licence required.
+
+triggers:
+  - type: sharepoint/whenItemModified
+    displayName: When an item is modified
+    inputs:
+      siteAddress: "@environmentVariables('DARKFACTORY_SP_SITE_URL')"
+      listName: DarkFactory-ActivityRequests
+
+actions:
+  - id: filter_status_complete
+    type: condition
+    displayName: Is Status = Complete?
+    inputs:
+      expression:
+        equals:
+          - "@triggerOutputs()?['body/Status/Value']"
+          - Complete
+    runAfter: []
+
+  - id: compose_risk_emoji
+    type: compose
+    displayName: Compose risk emoji
+    inputs:
+      value: >
+        @{if(equals(triggerOutputs()?['body/RiskLevel/Value'], 'Safe'), '🟢 Safe',
+          if(equals(triggerOutputs()?['body/RiskLevel/Value'], 'Caution'), '🟡 Caution',
+            '🔴 Unsafe'))}
+    runAfter:
+      filter_status_complete:
+        - Succeeded
+
+  - id: compose_message
+    type: compose
+    displayName: Compose Teams message
+    inputs:
+      value: >
+        **Activity Assessment Complete**
+
+        **Activity:** @{triggerOutputs()?['body/Activity']}
+        **Location:** @{triggerOutputs()?['body/Location']}
+        **Requested time:** @{triggerOutputs()?['body/RequestedDateTime']}
+
+        **Risk level:** @{outputs('compose_risk_emoji')}
+
+        **Assessment:** @{triggerOutputs()?['body/AssessmentReason']}
+    runAfter:
+      compose_risk_emoji:
+        - Succeeded
+
+  - id: send_teams_message
+    type: teams/postMessage
+    displayName: Send Teams message to requester
+    inputs:
+      recipient: "@triggerOutputs()?['body/RequestedBy/Email']"
+      messageBody: "@outputs('compose_message')"
+    runAfter:
+      compose_message:
+        - Succeeded
+
+  - id: fallback_on_recipient_error
+    type: teams/postMessage
+    displayName: Send Teams message to fallback recipient
+    inputs:
+      recipient: "@environmentVariables('NOTIFICATION_FALLBACK_RECIPIENT')"
+      messageBody: "@outputs('compose_message')"
+    runAfter:
+      send_teams_message:
+        - Failed

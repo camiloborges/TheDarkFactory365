@@ -76,6 +76,10 @@ param(
     })]
     [string[]] $GuestEmails = @(),
 
+    [string] $ActivityAdvisorAgentEndpoint = "https://sk-weather-agent.placeholder.azurecontainerapps.io",
+
+    [string] $ActivityAdvisorNotificationRecipient = "",
+
     [ValidateScript({
         if (-not (Test-Path $_)) { throw "Config file not found: $_" }
         return $true
@@ -104,7 +108,8 @@ $modules = @(
     'DarkFactory.List',
     'DarkFactory.Teams',
     'DarkFactory.Access',
-    'DarkFactory.PowerPlatform'
+    'DarkFactory.PowerPlatform',
+    'DarkFactory.ActivityAdvisor'
 )
 
 foreach ($mod in $modules) {
@@ -271,6 +276,17 @@ try {
     }
 } catch {
     $results += New-ProvisioningResult -Resource 'Power Platform environment' -Status 'SkippedWithWarning' -Detail "$_"
+}
+
+# Activity Advisor — DarkFactory-ActivityRequests list + Settings keys (Spec 005)
+try {
+    Invoke-ActivityAdvisorProvisioning `
+        -SiteUrl                      $SiteUrl `
+        -AgentEndpoint                $ActivityAdvisorAgentEndpoint `
+        -NotificationRecipient        $ActivityAdvisorNotificationRecipient
+    $results += New-ProvisioningResult -Resource 'Activity Advisor (Spec 005)' -Status 'Completed' -Detail 'DarkFactory-ActivityRequests list and Settings keys provisioned'
+} catch {
+    $results += New-ProvisioningResult -Resource 'Activity Advisor (Spec 005)' -Status 'Failed' -Detail "$_"
 }
 
 # ─── Report ───────────────────────────────────────────────────────────────────

@@ -1,0 +1,87 @@
+# DarkFactory Activity Advisor — Option B: Power Automate Premium HTTP flow
+# UNTESTED — requires Power Automate Premium licence (HTTP connector is Premium).
+# Functionally equivalent to src/activity-advisor/logic-app-definition.json (Option A).
+# Import via Power Automate > My Flows > Import > select this file.
+#
+# Environment variables required (set before enabling the flow):
+#   ACTIVITY_ADVISOR_API_KEY    — value of the X-Api-Key header
+#   ACTIVITY_ADVISOR_ENDPOINT   — base URL of the SK agent ACA deployment
+#   DARKFACTORY_SP_SITE_URL     — URL of the DarkFactory SharePoint site
+
+name: DarkFactory Activity Assessment (Option B - PA Premium)
+description: Triggers on new DarkFactory-ActivityRequests items, calls SK agent REST endpoint, writes assessment back to SharePoint.
+
+triggers:
+  - type: sharepoint/whenItemCreated
+    displayName: When an item is created
+    inputs:
+      siteAddress: "@environmentVariables('DARKFACTORY_SP_SITE_URL')"
+      listName: DarkFactory-ActivityRequests
+
+actions:
+  - id: call_sk_agent
+    type: http
+    displayName: POST /api/assess-activity
+    inputs:
+      method: POST
+      uri: "@concat(environmentVariables('ACTIVITY_ADVISOR_ENDPOINT'), '/api/assess-activity')"
+      headers:
+        Content-Type: application/json
+        X-Api-Key: "@environmentVariables('ACTIVITY_ADVISOR_API_KEY')"
+      body:
+        activity: "@triggerOutputs()?['body/Activity']"
+        location: "@triggerOutputs()?['body/Location']"
+        datetime: "@triggerOutputs()?['body/RequestedDateTime']"
+      retryPolicy:
+        type: none
+    runAfter: []
+
+  - id: parse_response
+    type: parseJson
+    displayName: Parse assessment response
+    inputs:
+      content: "@body('call_sk_agent')"
+      schema:
+        type: object
+        properties:
+          risk:
+            type: string
+          reason:
+            type: string
+    runAfter:
+      call_sk_agent:
+        - Succeeded
+
+  - id: update_item_complete
+    type: sharepoint/updateItem
+    displayName: Update item — Complete
+    inputs:
+      siteAddress: "@environmentVariables('DARKFACTORY_SP_SITE_URL')"
+      listName: DarkFactory-ActivityRequests
+      id: "@triggerOutputs()?['body/ID']"
+      item:
+        Status:
+          Value: Complete
+        RiskLevel:
+          Value: "@body('parse_response')?['risk']"
+        AssessmentReason: "@body('parse_response')?['reason']"
+    runAfter:
+      parse_response:
+        - Succeeded
+
+  - id: update_item_error
+    type: sharepoint/updateItem
+    displayName: Update item — Error
+    inputs:
+      siteAddress: "@environmentVariables('DARKFACTORY_SP_SITE_URL')"
+      listName: DarkFactory-ActivityRequests
+      id: "@triggerOutputs()?['body/ID']"
+      item:
+        Status:
+          Value: Error
+    runAfter:
+      call_sk_agent:
+        - Failed
+        - TimedOut
+      parse_response:
+        - Failed

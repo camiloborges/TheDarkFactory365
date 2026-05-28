@@ -121,21 +121,24 @@ As a DarkFactory tenant user, I want to receive a Teams message when my activity
 
 **Description**: The Option B automation path requires a Power Automate Premium licence because it uses the HTTP connector to call the SK agent REST endpoint. The HTTP connector is not available on the standard/seeded licence included with M365 Business Basic.
 
-**Impact**: If a Premium licence (or trial) is not available, Option B cannot be implemented as functional code. It must be documented as a stub with YAML/JSON snippets and implementation notes only.
+**Impact**: Premium licence is available. Option B ships as fully implemented Power Automate YAML. It cannot be end-to-end tested in the current environment (no live PA Premium environment at time of spec completion), so it is marked `[UNTESTED — requires PA Premium]` in quickstart.md and tasks.md.
 
-**Resolution**: Confirm licence availability before `/speckit-plan`. If Premium trial is available → implement Option B fully. If not → document Option B as a reference stub.
+**Resolution**: Power Automate Premium is available. Option B ships as working YAML with the HTTP connector. Testing gate: flow must be manually validated once a Premium environment is provisioned.
 
-**Status**: Unresolved — must be confirmed in `/speckit-clarify`.
+**Status**: RESOLVED — Option B ships. Marked untested pending Premium environment.
 
 ---
 
 ## Assumptions
 
 - Spec 003 (Tenant Infrastructure) provisioning has been run at least once — the DarkFactory SharePoint site, App Catalog, and `DarkFactory-Settings` list already exist.
-- The SK agent will be hosted on Azure Container Apps (same pattern as Spec 003 Azure resources) and its URL written to `DarkFactory-Settings.ActivityAdvisor.AgentEndpoint` after deployment.
-- Azure OpenAI (not OpenAI direct) is the target AI service for this deployment, consistent with the existing sample `appsettings.json` default (`UseAzureOpenAI: true`).
+- The SK agent is hosted on **Azure Container Apps** (same resource group pattern as Spec 003). Its public ingress URL is written to `DarkFactory-Settings.ActivityAdvisor.AgentEndpoint` after deployment.
+- **Azure OpenAI** is the target AI service (`UseAzureOpenAI: true`). The deployment name is `gpt-4o-mini` unless a different deployment is provisioned in the tenant's Azure OpenAI resource.
 - The canvas app targets the existing DarkFactory SharePoint site — no new site provisioning is required.
 - The Teams notification path uses standard Power Automate connectors only (SharePoint trigger + Teams message) and is not gated by RISK-001.
 - Power Apps standard connectors (SharePoint) are sufficient for the canvas app — no premium connectors are required for the UI layer.
-- The dual automation path (Option A + Option B) is intentional for portfolio/learning purposes and is accepted complexity per Spec 005 scope (see Spec constitution Principle VI YAGNI note).
-- NuGet package versions in `src/sk-weather-agent/` will be pinned to explicit stable versions during the `/speckit-plan` phase, before any CI pipeline runs against them.
+- The dual automation path (Option A + Option B) is intentional for portfolio/learning purposes and is accepted complexity per Spec 005 scope (Principle VI YAGNI justified — documented in plan Complexity Tracking).
+- NuGet package versions in `src/sk-weather-agent/` are pinned to the latest stable versions available at plan time. Floating `Version="*"` references from the research sample are replaced before any CI pipeline runs against the project.
+- **Open-Meteo geocoding**: Location strings from the canvas app are city names. The SK agent resolves them to lat/lon using the Open-Meteo Geocoding API (`https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1`) before calling the forecast endpoint. No API key is required for either endpoint.
+- **Endpoint authentication**: The `POST /api/assess-activity` endpoint is internal — exposed only within the Azure Container Apps ingress (not public internet). Logic App and Power Automate call it over private/VNet-scoped networking or with a managed identity header. For local development, the endpoint runs unauthenticated on `localhost:3978`.
+- The canvas app reads assessments directly from the `DarkFactory-ActivityRequests` SharePoint list using the standard SharePoint connector — no additional data source is required.

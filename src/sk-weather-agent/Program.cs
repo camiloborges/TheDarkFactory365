@@ -27,8 +27,9 @@ else
         apiKey: builder.Configuration["AIServices:OpenAI:ApiKey"]!);
 }
 
-// Register SK plugin and agent
+// Register SK plugins and agent
 builder.Services.AddSingleton<WeatherPlugin>();
+builder.Services.AddSingleton<ActivityAssessmentPlugin>();
 builder.Services.AddSingleton<IStorage, MemoryStorage>();
 builder.AddAgentApplicationOptions();
 builder.AddAgent<WeatherAgent>();
@@ -41,4 +42,65 @@ app.UseAuthorization();
 app.MapAgentRootEndpoint();
 app.MapAgentApplicationEndpoints(requireAuth: !app.Environment.IsDevelopment());
 
+// ── POST /api/assess-activity ─────────────────────────────────────────────────
+// Plain minimal API endpoint — bypasses Bot Framework activity routing.
+// Called by Logic App (Option A) and Power Automate (Option B).
+app.MapPost("/api/assess-activity", async (
+    ActivityAssessmentRequest request,
+    ActivityAssessmentPlugin plugin,
+    IConfiguration config,
+    HttpContext httpContext,
+    CancellationToken cancellationToken) =>
+{
+    // API key validation — bypassed in Development environment
+    if (!app.Environment.IsDevelopment())
+    {
+        var expectedKey = config["ActivityAdvisor:ApiKey"];
+        if (string.IsNullOrEmpty(expectedKey))
+            return Results.Problem("ActivityAdvisor:ApiKey is not configured.", statusCode: 500);
+
+        if (!httpContext.Request.Headers.TryGetValue("X-Api-Key", out var providedKey) ||
+            providedKey.ToString() != expectedKey)
+        {
+            return Results.Json(new { error = "unauthorized", message = "Missing or invalid X-Api-Key header." },
+                statusCode: 401);
+        }
+    }
+
+    // Input validation
+    if (string.IsNullOrWhiteSpace(request.Activity) ||
+        string.IsNullOrWhiteSpace(request.Location) ||
+        string.IsNullOrWhiteSpace(request.Datetime))
+    {
+        return Results.Json(new { error = "invalid_request", message = "activity, location, and datetime are required." },
+            statusCode: 400);
+    }
+
+    try
+    {
+        var result = await plugin.AssessActivityAsync(
+            request.Activity, request.Location, request.Datetime, cancellationToken);
+
+        return Results.Ok(new { risk = result.Risk, reason = result.Reason });
+    }
+    catch (InvalidOperationException ex) when (ex.Message.StartsWith("geocoding_failed"))
+    {
+        return Results.Json(new { error = "geocoding_failed", message = ex.Message.Replace("geocoding_failed: ", "") },
+            statusCode: 502);
+    }
+    catch (InvalidOperationException ex) when (ex.Message.StartsWith("assessment_failed"))
+    {
+        return Results.Json(new { error = "assessment_failed", message = ex.Message.Replace("assessment_failed: ", "") },
+            statusCode: 502);
+    }
+    catch (HttpRequestException ex)
+    {
+        return Results.Json(new { error = "forecast_failed", message = $"Weather API unreachable: {ex.Message}" },
+            statusCode: 502);
+    }
+});
+
 app.Run();
+
+// ── Request model ─────────────────────────────────────────────────────────────
+public record ActivityAssessmentRequest(string Activity, string Location, string Datetime);

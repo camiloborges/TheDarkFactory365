@@ -1,0 +1,138 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "SharePointSiteUrl": {
+      "type": "string",
+      "metadata": { "description": "URL of the DarkFactory SharePoint site" }
+    },
+    "ActivityRequestsListName": {
+      "type": "string",
+      "defaultValue": "DarkFactory-ActivityRequests"
+    },
+    "SettingsListName": {
+      "type": "string",
+      "defaultValue": "DarkFactory-Settings"
+    },
+    "ActivityAdvisorApiKey": {
+      "type": "securestring",
+      "metadata": { "description": "X-Api-Key for POST /api/assess-activity. Stored as Logic App parameter — never in workflow JSON." }
+    },
+    "AgentEndpointUrl": {
+      "type": "string",
+      "metadata": { "description": "Base URL of the deployed SK agent, e.g. https://sk-weather-agent.{hash}.azurecontainerapps.io" }
+    }
+  },
+  "triggers": {
+    "When_an_item_is_created": {
+      "type": "ApiConnection",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+          }
+        },
+        "method": "get",
+        "path": "/datasets/@{encodeURIComponent(encodeURIComponent(parameters('SharePointSiteUrl')))}/tables/@{encodeURIComponent(encodeURIComponent(parameters('ActivityRequestsListName')))}/onnewitems"
+      },
+      "recurrence": { "frequency": "Minute", "interval": 1 }
+    }
+  },
+  "actions": {
+    "Initialize_ItemId": {
+      "type": "InitializeVariable",
+      "inputs": {
+        "variables": [
+          {
+            "name": "ItemId",
+            "type": "integer",
+            "value": "@triggerBody()?['ID']"
+          }
+        ]
+      },
+      "runAfter": {}
+    },
+    "Call_SK_Agent": {
+      "type": "Http",
+      "inputs": {
+        "method": "POST",
+        "uri": "@{parameters('AgentEndpointUrl')}/api/assess-activity",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "@parameters('ActivityAdvisorApiKey')"
+        },
+        "body": {
+          "activity": "@{triggerBody()?['Activity']}",
+          "location": "@{triggerBody()?['Location']}",
+          "datetime": "@{triggerBody()?['RequestedDateTime']}"
+        },
+        "retryPolicy": { "type": "none" }
+      },
+      "operationOptions": "DisableAsyncPattern",
+      "runAfter": {
+        "Initialize_ItemId": [ "Succeeded" ]
+      }
+    },
+    "Parse_Agent_Response": {
+      "type": "ParseJson",
+      "inputs": {
+        "content": "@body('Call_SK_Agent')",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "risk":   { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        }
+      },
+      "runAfter": {
+        "Call_SK_Agent": [ "Succeeded" ]
+      }
+    },
+    "Update_Item_Complete": {
+      "type": "ApiConnection",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+          }
+        },
+        "method": "patch",
+        "path": "/datasets/@{encodeURIComponent(encodeURIComponent(parameters('SharePointSiteUrl')))}/tables/@{encodeURIComponent(encodeURIComponent(parameters('ActivityRequestsListName')))}/items/@{variables('ItemId')}",
+        "body": {
+          "Status": { "Value": "Complete" },
+          "RiskLevel": { "Value": "@{body('Parse_Agent_Response')?['risk']}" },
+          "AssessmentReason": "@{body('Parse_Agent_Response')?['reason']}"
+        }
+      },
+      "runAfter": {
+        "Parse_Agent_Response": [ "Succeeded" ]
+      }
+    },
+    "On_Agent_Call_Failed": {
+      "type": "Scope",
+      "actions": {
+        "Update_Item_Error": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+              }
+            },
+            "method": "patch",
+            "path": "/datasets/@{encodeURIComponent(encodeURIComponent(parameters('SharePointSiteUrl')))}/tables/@{encodeURIComponent(encodeURIComponent(parameters('ActivityRequestsListName')))}/items/@{variables('ItemId')}",
+            "body": {
+              "Status": { "Value": "Error" }
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "Call_SK_Agent": [ "Failed", "TimedOut" ],
+        "Parse_Agent_Response": [ "Failed" ]
+      }
+    }
+  },
+  "outputs": {}
+}

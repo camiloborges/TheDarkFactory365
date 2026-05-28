@@ -67,15 +67,38 @@ teamsapptester
 
 Try: "What's the weather in Wellington?" or "Give me a 3-day forecast for Auckland."
 
+## POST /api/assess-activity — Activity Weather Advisor endpoint
+
+Added as part of Spec 005. A plain minimal API endpoint that bypasses Bot Framework routing.
+
+**Requires `ActivityAdvisor:ApiKey` in `appsettings.json`** (or user secrets). In `Development` the key check is bypassed.
+
+```bash
+# Set the API key (local dev — use user-secrets, not appsettings)
+dotnet user-secrets set "ActivityAdvisor:ApiKey" "dev-key-123"
+
+# Test the endpoint
+curl -X POST http://localhost:3978/api/assess-activity \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: dev-key-123" \
+  -d '{"activity":"Trail Run","location":"Wellington","datetime":"2026-05-29T08:00:00"}'
+```
+
+Response:
+```json
+{ "risk": "Caution", "reason": "Wind speeds of 45 km/h are forecast at 08:00 — exposed ridgelines should be avoided." }
+```
+
+Error (unknown city):
+```json
+{ "error": "geocoding_failed", "message": "Could not resolve 'Atlantis' to coordinates." }
+```
+
 ## Extending the weather plugin
 
-Replace the stub returns in `Plugins/WeatherPlugin.cs` with real HTTP calls. Open-Meteo is free and doesn't require an API key:
+`WeatherPlugin.cs` now uses real Open-Meteo HTTP calls — no stubs. The plugin calls the Geocoding API to resolve city names to lat/lon before calling the Forecast API. See `contracts/open-meteo-api.md` for the full URL patterns.
 
-```csharp
-// Free, no API key needed: https://open-meteo.com/
-var url = $"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weathercode";
-var data = await _httpClient.GetFromJsonAsync<OpenMeteoResponse>(url, ct);
-```
+`ActivityAssessmentPlugin.cs` uses `WeatherPlugin`'s internal helpers (`ResolveLocationAsync`, `FetchForecastAsync`) to get conditions, selects the hourly slot nearest to the requested datetime, and calls GPT with a structured prompt to produce `{ risk, reason }`.
 
 ## Key patterns demonstrated
 
