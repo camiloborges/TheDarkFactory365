@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr *)",
+      "Bash(Get-ChildItem -Recurse -Filter \"*.csproj\")",
+      "Bash(Select-Object FullName)",
+      "Bash(find \"C:/personal/personalassistance/areas/research/m365-custom-agents-2026/samples/sk-weather-agent-dotnet\" -type f | sort)"
+    ]
+  }
+}

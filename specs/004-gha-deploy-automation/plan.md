@@ -7,7 +7,7 @@
 
 ## Summary
 
-Two GitHub Actions workflow files automate the full TheDarkFactory365 deployment pipeline. `ci-spfx.yml` validates every pull request touching the SPFx web part (build + tests). `deploy.yml` deploys all three specs on merge to `main` or manual trigger — SPFx to the SharePoint App Catalog (via PnP.PowerShell), the Logic App workflow definition to Azure (via az CLI with OIDC), and the SharePoint seed script idempotently. A single Entra service principal is used for all operations: OIDC federated credentials for Azure CLI, certificate-based auth for PnP.PowerShell. No credentials appear in committed files; all are stored in GitHub Secrets.
+Two GitHub Actions workflow files automate the full TheDarkFactory365 deployment pipeline, extended to cover Spec 005 in addition to Specs 001–003. `ci-spfx.yml` validates every PR touching the SPFx web part. `ci-sk-agent.yml` validates every PR touching the SK Weather Agent (.NET 8 build). `ci-canvas-pack.yml` runs `pac canvas pack` on PRs touching the canvas app source and uploads the `.msapp` as an artifact. `deploy.yml` deploys all specs on merge to `main` or manual trigger: SPFx to the SharePoint App Catalog, the rain-alert Logic App to Azure, SharePoint seed data, the SK agent Docker image to Azure Container Apps, the Activity Advisor SharePoint list (idempotent PnP), and the Activity Advisor Logic App ARM template. A single Entra service principal is used for all operations. No credentials appear in committed files; all are stored in GitHub Secrets.
 
 ---
 
@@ -21,6 +21,8 @@ Two GitHub Actions workflow files automate the full TheDarkFactory365 deployment
 | **SharePoint auth** | PnP.PowerShell v2, certificate (`-CertificateBase64Encoded`) |
 | **SPFx deployment** | PnP.PowerShell `Add-PnPApp` + `Publish-PnPApp` |
 | **Logic App deployment** | `az logic workflow update --definition @file --parameters @params` |
+| **SK Agent deployment** | `docker build` → `az acr login` → `docker push` → `az containerapp update` |
+| **Canvas app CI** | `pac canvas pack` via `microsoft/powerplatform-actions/actions-install` |
 | **Path filtering** | `dorny/paths-filter@v3` for job-level conditional execution |
 | **Artefact store** | GitHub Actions Artefacts (7-day retention), within-run only |
 | **Target platform** | `camiloborges/TheDarkFactory365` GitHub repository |
@@ -68,11 +70,13 @@ specs/004-gha-deploy-automation/
 .github/
 └── workflows/
     ├── ci-spfx.yml            # PR validation: build + test SPFx
+    ├── ci-sk-agent.yml        # PR validation: dotnet build SK Weather Agent
+    ├── ci-canvas-pack.yml     # PR validation: pac canvas pack → upload .msapp artifact
     └── deploy.yml             # Deploy on push to main or workflow_dispatch
 ```
 
-No changes to `src/dark-factory-weather/`, `src/rain-alert/`, or `specs/` source files.
-Existing deploy scripts (`Deploy-AlertInfrastructure.ps1`, `Invoke-AlertSeedData.ps1`) are called as-is.
+No changes to source files in `src/` or `specs/`.
+Existing deploy scripts (`Deploy-AlertInfrastructure.ps1`, `Invoke-AlertSeedData.ps1`, `Invoke-DarkFactoryProvisioning.ps1`, `DarkFactory.ActivityAdvisor.psm1`) are called as-is.
 
 ---
 
@@ -127,6 +131,8 @@ outputs:
   spfx:             steps.filter.outputs.spfx
   logic-app:        steps.filter.outputs.logic-app
   sharepoint-seed:  steps.filter.outputs.sharepoint-seed
+  sk-agent:         steps.filter.outputs.sk-agent
+  activity-advisor: steps.filter.outputs.activity-advisor
 ```
 
 #### Job 2: `build-spfx`
@@ -185,6 +191,72 @@ Steps:
 3. Run `src/rain-alert/deploy/Invoke-AlertSeedData.ps1` with `-SiteUrl ${{ vars.SHAREPOINT_SITE_URL }}` — uses `SP_CERT_BASE64` for auth
 4. Print idempotency summary (items added vs skipped)
 
+#### Job 6: `deploy-sk-agent`
+
+Condition: `needs.detect-changes.outputs.sk-agent == 'true' || github.event_name == 'workflow_dispatch'`
+Needs: `detect-changes`
+
+Steps:
+1. Checkout
+2. `azure/login@v2` (OIDC)
+3. `az acr login --name $ACR_NAME`
+4. `docker build -t $ACR_NAME.azurecr.io/sk-weather-agent:$GITHUB_SHA src/sk-weather-agent`
+5. `docker push $ACR_NAME.azurecr.io/sk-weather-agent:$GITHUB_SHA`
+6. `az containerapp update --name $ACA_NAME --resource-group $AZURE_RESOURCE_GROUP --image $IMAGE`
+7. Print deployment summary with image tag to `$GITHUB_STEP_SUMMARY`
+
+#### Job 7: `deploy-activity-sp-list`
+
+Condition: `needs.detect-changes.outputs.activity-advisor == 'true' || github.event_name == 'workflow_dispatch'`
+Needs: `detect-changes`
+
+Steps:
+1. Checkout
+2. Install PnP.PowerShell (pinned version)
+3. `Connect-PnPOnline` using `SP_CERT_BASE64`
+4. `Import-Module ./src/tenant-infra/modules/DarkFactory.ActivityAdvisor.psm1`
+5. `Invoke-ActivityAdvisorProvisioning -AgentEndpoint $ACA_ENDPOINT_URL -NotificationRecipient $NOTIFICATION_RECIPIENT`
+
+#### Job 8: `deploy-activity-logic-app`
+
+Condition: `needs.detect-changes.outputs.activity-advisor == 'true' || github.event_name == 'workflow_dispatch'`
+Needs: `detect-changes`
+
+Steps:
+1. Checkout
+2. `azure/login@v2` (OIDC)
+3. Query SharePoint connection runtime URL via `az rest` (same pattern as `deploy-logic-app` for rain-alert)
+4. `az deployment group create --template-file src/activity-advisor/deploy/activity-advisor-logic-app.json --parameters workflowDefinition=@... sharePointConnectionRuntimeUrl=... agentEndpointUrl=... activityAdvisorApiKey=...`
+5. Print post-deploy reminder (manual gates: authorise SP connection, enable Logic App)
+
+---
+
+### Phase 3 — CI Workflows for Spec 005
+
+**Goal**: Build gate for the SK Agent and canvas app artifact production on PRs.
+
+#### `ci-sk-agent.yml`
+
+**Trigger**: `pull_request` with `paths: src/sk-weather-agent/**`
+
+**Job: `build`**:
+1. `actions/checkout@v4`
+2. `actions/setup-dotnet@v4` dotnet-version: 8.0.x
+3. `dotnet restore` in `src/sk-weather-agent/`
+4. `dotnet build --no-restore --configuration Release` — fails workflow on compile error
+
+Note: No `dotnet test` step — no test project exists in the SK agent at this time.
+
+#### `ci-canvas-pack.yml`
+
+**Trigger**: `pull_request` with `paths: src/activity-advisor/canvas-app/**`
+
+**Job: `build-canvas-app`**:
+1. `actions/checkout@v4`
+2. `microsoft/powerplatform-actions/actions-install@latest` — installs pac CLI
+3. `pac canvas pack --sources src/activity-advisor/canvas-app --msapp /tmp/DarkFactoryActivityAdvisor.msapp`
+4. `actions/upload-artifact@v4` — uploads `.msapp` as `canvas-app-package`, retention 7 days
+
 ---
 
 ## Complexity Tracking
@@ -195,3 +267,6 @@ No constitution violations. All decisions justified:
 |---|---|---|
 | Two auth methods (OIDC + certificate) | Requires federated credential setup AND cert generation | OIDC unavailable natively in PnP.PowerShell without wrapper action; certificate is the supported path. Using OIDC for az CLI avoids storing ANY Azure credentials as secret material. |
 | `dorny/paths-filter@v3` dependency | Third-party action | Native GHA path filtering is workflow-level only; job-level conditional execution requires a helper. `dorny/paths-filter` is MIT-licensed, widely used (100M+ runs/month), and has no network egress of secrets. |
+| Docker build on ubuntu-latest | Requires ACR + container app pre-created | One-time manual setup (ACR + ACA provisioning) is the accepted bootstrap pattern for containerised workloads on GHA. After bootstrap, all updates are fully automated. |
+| `microsoft/powerplatform-actions/actions-install` dependency | Third-party (Microsoft) action | Official Microsoft action for pac CLI; no alternative cross-platform pac install path on Linux runners. |
+| Spec 005 Principal VI YAGNI re-check | Three new deploy jobs increase `deploy.yml` job count from 5 to 8 | Justified: all three jobs target distinct infrastructure resources (ACA, SPO, Logic App) with no shared steps. Factoring into a reusable workflow would add indirection with no current benefit. |

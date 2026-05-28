@@ -1,0 +1,15 @@
+{
+  "FormatVersion": "1",
+  "SavedFromVersion": "3.24010",
+  "Name": "DarkFactory Activity Advisor",
+  "Description": "Submit outdoor activity requests and view AI-powered weather suitability assessments.",
+  "ScreenWidth": 1366,
+  "ScreenHeight": 768,
+  "PublishInfo": {
+    "Description": "Submit outdoor activity requests and view AI-powered weather suitability assessments.",
+    "AppImage": "",
+    "BackgroundColor": "#0078d4",
+    "Author": "",
+    "IsHeroApp": false
+  }
+}

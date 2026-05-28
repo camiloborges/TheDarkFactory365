@@ -218,6 +218,259 @@ T006 (workflow shell) → T007 (detect-changes job) → T008 (build-spfx), T009 
 
 - T003–T005 (US1) can run in parallel with T006–T011 (US2) — different files
 - T012, T013 (US3 audit) can run in parallel with each other — different files
+- T019–T022 (Phase 7) depend on `deploy.yml` and `detect-changes` existing (Phase 4 complete)
+- T023, T024 (canvas pack CI) is independent — new file, no dependency on deploy.yml
+
+---
+
+## Phase 7: Spec 005 — Activity Advisor GHA Integration (Priority: P2/P3)
+
+**Purpose**: Extend the pipeline to cover the three GHA-deployable components of Spec 005: the SK Weather Agent (CI build gate + ACA deploy), the Activity Advisor SharePoint list provisioning, and the Activity Advisor Logic App ARM deployment. Adds two new CI workflow files and three new jobs to `deploy.yml`.
+
+**Prerequisite**: Phase 4 complete (`deploy.yml` with detect-changes, build-spfx, deploy-spfx, deploy-logic-app, deploy-sharepoint-seed all in place).
+
+---
+
+### T019 [US4] Create `.github/workflows/ci-sk-agent.yml`
+
+Create a new CI workflow that builds the SK Weather Agent on every pull request touching `src/sk-weather-agent/`:
+
+```yaml
+name: CI — SK Weather Agent
+on:
+  pull_request:
+    paths:
+      - 'src/sk-weather-agent/**'
+jobs:
+  build:
+    name: Build SK Agent (.NET 8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore
+        working-directory: src/sk-weather-agent
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+        working-directory: src/sk-weather-agent
+```
+
+Note: no `dotnet test` step — the SK agent project has no test project at this time. Add the test step when a test project is introduced.
+
+---
+
+### T020 [US5] Create `.github/workflows/ci-canvas-pack.yml`
+
+Create a new CI workflow that runs `pac canvas pack` on every PR touching the canvas app source and uploads the `.msapp` as a workflow artifact:
+
+```yaml
+name: CI — Canvas App Pack
+on:
+  pull_request:
+    paths:
+      - 'src/activity-advisor/canvas-app/**'
+jobs:
+  build-canvas-app:
+    name: Build Canvas App (.msapp)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pac CLI
+        uses: microsoft/powerplatform-actions/actions-install@latest
+      - name: pac canvas pack
+        run: pac canvas pack --sources src/activity-advisor/canvas-app --msapp /tmp/DarkFactoryActivityAdvisor.msapp
+      - name: Upload canvas app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: canvas-app-package
+          path: /tmp/DarkFactoryActivityAdvisor.msapp
+          retention-days: 7
+```
+
+---
+
+### T021 [US2] Extend `deploy.yml` — add Spec 005 paths and detect-changes filters
+
+Two edits to `deploy.yml`:
+
+**1. Extend `on.push.paths`** to include:
+```yaml
+- 'src/sk-weather-agent/**'
+- 'src/activity-advisor/**'
+- 'src/tenant-infra/modules/DarkFactory.ActivityAdvisor.psm1'
+```
+
+**2. Extend `detect-changes` job** — add two new filter entries and two new outputs:
+```yaml
+# In dorny/paths-filter@v3 with: filters:
+sk-agent: ['src/sk-weather-agent/**']
+activity-advisor:
+  - 'src/activity-advisor/logic-app-definition.json'
+  - 'src/activity-advisor/deploy/**'
+  - 'src/tenant-infra/modules/DarkFactory.ActivityAdvisor.psm1'
+  - 'src/tenant-infra/Invoke-DarkFactoryProvisioning.ps1'
+```
+```yaml
+# In detect-changes job outputs:
+sk-agent: ${{ steps.filter.outputs.sk-agent }}
+activity-advisor: ${{ steps.filter.outputs.activity-advisor }}
+```
+
+---
+
+### T022 [US2, US4] Add `deploy-sk-agent` job to `deploy.yml`
+
+```yaml
+deploy-sk-agent:
+  name: Deploy SK Agent → ACA
+  needs: detect-changes
+  if: needs.detect-changes.outputs.sk-agent == 'true' || github.event_name == 'workflow_dispatch'
+  runs-on: ubuntu-latest
+  env:
+    ACR_NAME: ${{ vars.ACR_NAME }}
+    ACA_NAME: ${{ vars.ACA_NAME }}
+    ACA_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  steps:
+    - uses: actions/checkout@v4
+    - uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - name: Login to ACR
+      run: az acr login --name $ACR_NAME
+    - name: Build and push Docker image
+      run: |
+        IMAGE=$ACR_NAME.azurecr.io/sk-weather-agent:$GITHUB_SHA
+        docker build -t $IMAGE src/sk-weather-agent
+        docker push $IMAGE
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+    - name: Deploy to Container Apps
+      run: |
+        az containerapp update \
+          --name $ACA_NAME \
+          --resource-group $ACA_RESOURCE_GROUP \
+          --image $IMAGE
+    - name: Print deployment summary
+      run: |
+        echo "### SK Agent Deployed ✅" >> $GITHUB_STEP_SUMMARY
+        echo "Image: \`$IMAGE\`" >> $GITHUB_STEP_SUMMARY
+        echo "Container App: \`$ACA_NAME\`" >> $GITHUB_STEP_SUMMARY
+```
+
+New GitHub Variables required: `ACR_NAME`, `ACA_NAME` (if `ACA_RESOURCE_GROUP` differs from `AZURE_RESOURCE_GROUP`, add it separately).
+
+---
+
+### T023 [US2] Add `deploy-activity-sp-list` job to `deploy.yml`
+
+```yaml
+deploy-activity-sp-list:
+  name: Deploy Activity Advisor SP List
+  needs: detect-changes
+  if: needs.detect-changes.outputs.activity-advisor == 'true' || github.event_name == 'workflow_dispatch'
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - name: Install PnP.PowerShell
+      run: Install-Module PnP.PowerShell -RequiredVersion $env:PNP_VERSION -Force -Scope CurrentUser
+      shell: pwsh
+    - name: Provision Activity Advisor SP list
+      shell: pwsh
+      env:
+        SHAREPOINT_SITE_URL: ${{ vars.SHAREPOINT_SITE_URL }}
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        SP_CERT_BASE64: ${{ secrets.SP_CERT_BASE64 }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ACA_ENDPOINT_URL: ${{ vars.ACA_ENDPOINT_URL }}
+        NOTIFICATION_RECIPIENT: ${{ vars.ACTIVITY_ADVISOR_NOTIFICATION_RECIPIENT }}
+      run: |
+        Connect-PnPOnline -Url $env:SHAREPOINT_SITE_URL `
+          -ClientId $env:AZURE_CLIENT_ID `
+          -CertificateBase64Encoded $env:SP_CERT_BASE64 `
+          -Tenant $env:AZURE_TENANT_ID
+        Import-Module ./src/tenant-infra/modules/DarkFactory.ActivityAdvisor.psm1
+        Invoke-ActivityAdvisorProvisioning `
+          -AgentEndpoint $env:ACA_ENDPOINT_URL `
+          -NotificationRecipient $env:NOTIFICATION_RECIPIENT
+```
+
+New GitHub Variables required: `ACA_ENDPOINT_URL`, `ACTIVITY_ADVISOR_NOTIFICATION_RECIPIENT`.
+
+---
+
+### T024 [US2] Add `deploy-activity-logic-app` job to `deploy.yml`
+
+```yaml
+deploy-activity-logic-app:
+  name: Deploy Activity Advisor Logic App
+  needs: detect-changes
+  if: needs.detect-changes.outputs.activity-advisor == 'true' || github.event_name == 'workflow_dispatch'
+  runs-on: ubuntu-latest
+  env:
+    AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+    ACTIVITY_LA_NAME: ${{ vars.ACTIVITY_ADVISOR_LOGIC_APP_NAME }}
+    SP_CONN_NAME: ${{ vars.ACTIVITY_ADVISOR_SP_CONNECTION_NAME }}
+    ACA_ENDPOINT_URL: ${{ vars.ACA_ENDPOINT_URL }}
+  steps:
+    - uses: actions/checkout@v4
+    - uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - name: Get SharePoint connection runtime URL
+      run: |
+        SP_RUNTIME_URL=$(az rest --method get \
+          --url "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Web/connections/$SP_CONN_NAME?api-version=2016-06-01" \
+          --query "properties.connectionRuntimeUrl" -o tsv)
+        echo "SP_RUNTIME_URL=$SP_RUNTIME_URL" >> $GITHUB_ENV
+      env:
+        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - name: Deploy ARM template
+      run: |
+        az deployment group create \
+          --resource-group $AZURE_RESOURCE_GROUP \
+          --template-file src/activity-advisor/deploy/activity-advisor-logic-app.json \
+          --parameters \
+            workflowDefinition=@src/activity-advisor/logic-app-definition.json \
+            sharePointConnectionRuntimeUrl="$SP_RUNTIME_URL" \
+            agentEndpointUrl="$ACA_ENDPOINT_URL" \
+            activityAdvisorApiKey="${{ secrets.ACTIVITY_ADVISOR_API_KEY }}"
+    - name: Print post-deploy reminder
+      run: |
+        echo "### Activity Advisor Logic App Deployed ✅" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**MANUAL STEPS REQUIRED (one-time):**" >> $GITHUB_STEP_SUMMARY
+        echo "1. Azure portal → \`$ACTIVITY_LA_NAME\` → API connections → Authorise \`$SP_CONN_NAME\`" >> $GITHUB_STEP_SUMMARY
+        echo "2. Azure portal → \`$ACTIVITY_LA_NAME\` → Enable" >> $GITHUB_STEP_SUMMARY
+```
+
+New GitHub Secrets required: `ACTIVITY_ADVISOR_API_KEY`.
+New GitHub Variables required: `ACTIVITY_ADVISOR_LOGIC_APP_NAME`, `ACTIVITY_ADVISOR_SP_CONNECTION_NAME`.
+
+---
+
+### T025 [US3, P] Document and audit Spec 005 GitHub Secrets and Variables
+
+Verify every name used in T022–T024 appears in the quickstart.md Step 7 secrets/variables table. Add the following entries if missing:
+
+| Name | Type | Description |
+|---|---|---|
+| `ACTIVITY_ADVISOR_API_KEY` | Secret | X-Api-Key for the SK agent `POST /api/assess-activity` endpoint |
+| `ACR_NAME` | Variable | Azure Container Registry name (e.g. `acrdarkfactory`) |
+| `ACA_NAME` | Variable | Container App name (e.g. `ca-darkfactory-sk-weather-agent`) |
+| `ACA_ENDPOINT_URL` | Variable | Public HTTPS URL of the Container App (e.g. `https://ca-darkfactory-sk-weather-agent.azurecontainerapps.io`) |
+| `ACTIVITY_ADVISOR_LOGIC_APP_NAME` | Variable | e.g. `la-darkfactory-activity-advisor` |
+| `ACTIVITY_ADVISOR_SP_CONNECTION_NAME` | Variable | SharePoint API connection name in `rg-darkfactory` |
+| `ACTIVITY_ADVISOR_NOTIFICATION_RECIPIENT` | Variable | Teams user UPN or email for assessment notifications |
+
+Also re-run the credential audit from T013 and T014 across the three new workflow sections to verify no hardcoded values appear.
+
+**Checkpoint**: All three new `deploy.yml` jobs verified with `workflow_dispatch`. `ci-sk-agent.yml` verified by opening a test PR with a .NET compile error. `ci-canvas-pack.yml` verified by opening a PR touching the canvas app source.
 - T015, T016, T017, T018 (polish) can run in parallel
 
 ---

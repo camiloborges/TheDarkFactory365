@@ -1,0 +1,59 @@
+#!/bin/sh
+# Pre-push hook: scan commits about to be pushed for secrets using gitleaks.
+#
+# This is the SECONDARY secret guard — a safety net in case the pre-commit
+# hook was bypassed (e.g. via --no-verify or a machine without gitleaks).
+# Only new commits (not already on remote) are scanned.
+#
+# Setup: run setup-hooks.ps1 once, then install gitleaks.
+#   Windows: winget install gitleaks.gitleaks
+#   macOS:   brew install gitleaks
+
+if ! command -v gitleaks > /dev/null 2>&1; then
+    echo ""
+    echo "BLOCKED: gitleaks is not installed — push rejected."
+    echo ""
+    echo "  Secret scanning is mandatory. Install gitleaks before pushing:"
+    echo "    Windows : winget install gitleaks.gitleaks"
+    echo "    macOS   : brew install gitleaks"
+    echo "    Linux   : https://github.com/gitleaks/gitleaks#installing"
+    echo ""
+    echo "  After installation, re-run: pwsh setup-hooks.ps1"
+    echo ""
+    exit 1
+fi
+
+remote="$1"
+exit_code=0
+
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+    # Skip branch deletions
+    [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        # New branch — scan all commits on this branch
+        log_opts="$local_sha"
+    else
+        # Existing branch — scan only the new commits not yet on remote
+        log_opts="$remote_sha..$local_sha"
+    fi
+
+    echo "Scanning commits ($log_opts) before push to $remote..."
+    gitleaks git . --log-opts "$log_opts" --config .gitleaks.toml --redact
+    SCAN_STATUS=$?
+
+    if [ $SCAN_STATUS -ne 0 ]; then
+        echo ""
+        echo "PUSH BLOCKED: gitleaks found potential secrets in commits to be pushed."
+        echo ""
+        echo "  The affected commit(s) contain what looks like a real credential."
+        echo "  To fix:"
+        echo "    1. Rewrite history to remove the secret: git rebase -i or git filter-repo"
+        echo "    2. Rotate the exposed credential immediately — treat it as compromised."
+        echo "    3. If this is a confirmed false positive, add it to .gitleaks.toml allowlists."
+        echo ""
+        exit_code=1
+    fi
+done
+
+exit $exit_code

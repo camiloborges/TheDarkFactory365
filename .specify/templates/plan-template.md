@@ -1,6 +1,7 @@
 # Implementation Plan: [FEATURE]
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 **Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
@@ -17,33 +18,29 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+
 **Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+
+**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
+
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
+
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Verify each principle from `.specify/memory/constitution.md`. A failing gate is a blocker —
-document violations in the Complexity Tracking table with specific justification.
-
-| Principle | Gate question | Status |
-|---|---|---|
-| I. Automation-First | Does every recurring operation run without manual triggering? | ✅ / ❌ |
-| II. Platform-Native | Are all extension points official and supported (SPFx, Fluent UI, Teams SDK)? | ✅ / ❌ |
-| III. Spec-Driven | Is spec.md approved and research.md complete before this plan? | ✅ / ❌ |
-| IV. SOLID | Does every service/component have a single responsibility? Are dependencies injected? | ✅ / ❌ |
-| V. DRY | Is every config value, lookup, and style token defined exactly once? | ✅ / ❌ |
-| VI. YAGNI | Is every architectural decision justified by a current, documented need? | ✅ / ❌ |
-| VII. Accessibility | Is WCAG 2.1 AA verified for the colour palette before implementation? | ✅ / ❌ |
-| Platform Gate | Is the M365 subscription (Business Basic+) and licensing confirmed? | ✅ / ❌ |
+[Gates determined based on constitution file]
 
 ## Project Structure
 
@@ -114,22 +111,3 @@ directories captured above]
 |-----------|------------|-------------------------------------|
 | [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
 | [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
-
----
-
-## Spec Drift Sync Checkpoint
-
-> **Complete this section before opening a PR — required by the Spec Drift Policy (constitution v1.1.0+)**
-
-After implementation, verify each artifact is accurate against the code. Check the box when confirmed or note the update made.
-
-| Artifact | Status | Notes |
-|---|---|---|
-| `contracts/` — param block, output contract, example invocations | ☐ verified / ☐ updated | |
-| `quickstart.md` — run instructions, prereqs, verification checklist | ☐ verified / ☐ updated | |
-| `plan.md` — Project Structure matches actual directory layout | ☐ verified / ☐ updated | |
-| `plan.md` — Key Design Decisions captures implementation choices | ☐ verified / ☐ updated | |
-| `plan.md` — Constitution Check notes reflect final design | ☐ verified / ☐ updated | |
-| `tasks.md` — post-implementation changes recorded as completed tasks | ☐ verified / ☐ updated | |
-
-Any implementation decision that diverged from the plan MUST be recorded in `tasks.md` as a completed post-implementation task (T0XX) before this checkpoint is closed.

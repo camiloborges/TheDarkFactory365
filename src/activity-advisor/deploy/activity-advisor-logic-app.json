@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "logicAppName": {
+      "type": "string",
+      "defaultValue": "la-darkfactory-activity-advisor"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "sharePointConnectionName": {
+      "type": "string",
+      "defaultValue": "sharepointonline"
+    },
+    "SharePointSiteUrl": {
+      "type": "string"
+    },
+    "ActivityAdvisorApiKey": {
+      "type": "securestring"
+    },
+    "AgentEndpointUrl": {
+      "type": "string"
+    },
+    "workflowDefinition": {
+      "type": "object",
+      "metadata": {
+        "description": "The Logic App workflow definition object. Pass the contents of logic-app-definition.json as a parameter. Use: --parameters workflowDefinition=@../logic-app-definition.json"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "[parameters('logicAppName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "state": "Disabled",
+        "definition": "[parameters('workflowDefinition')]",
+        "parameters": {
+          "SharePointSiteUrl": { "value": "[parameters('SharePointSiteUrl')]" },
+          "ActivityAdvisorApiKey": { "value": "[parameters('ActivityAdvisorApiKey')]" },
+          "AgentEndpointUrl": { "value": "[parameters('AgentEndpointUrl')]" },
+          "$connections": {
+            "value": {
+              "sharepointonline": {
+                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('sharePointConnectionName'))]",
+                "connectionName": "[parameters('sharePointConnectionName')]",
+                "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', parameters('location'), 'sharepointonline')]"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "logicAppResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
+    }
+  }
+}

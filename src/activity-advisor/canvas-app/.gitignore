@@ -1,0 +1,3 @@
+# Built output — do not commit the binary .msapp to source control.
+# Regenerate with: pwsh build.ps1
+*.msapp

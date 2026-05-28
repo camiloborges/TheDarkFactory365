@@ -1,0 +1,39 @@
+#!/bin/sh
+# Pre-commit hook: scan staged changes for secrets using gitleaks.
+#
+# This is the PRIMARY secret guard — it prevents secrets from ever entering
+# git history. Runs before every commit.
+#
+# Setup: run setup-hooks.ps1 once, then install gitleaks.
+#   Windows: winget install gitleaks.gitleaks
+#   macOS:   brew install gitleaks
+#   Linux:   https://github.com/gitleaks/gitleaks#installing
+
+if ! command -v gitleaks > /dev/null 2>&1; then
+    echo ""
+    echo "BLOCKED: gitleaks is not installed — commit rejected."
+    echo ""
+    echo "  Secret scanning is mandatory. Install gitleaks before committing:"
+    echo "    Windows : winget install gitleaks.gitleaks"
+    echo "    macOS   : brew install gitleaks"
+    echo "    Linux   : https://github.com/gitleaks/gitleaks#installing"
+    echo ""
+    echo "  After installation, re-run: pwsh setup-hooks.ps1"
+    echo ""
+    exit 1
+fi
+
+gitleaks protect --staged --config .gitleaks.toml --redact
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+    echo ""
+    echo "COMMIT BLOCKED: gitleaks found potential secrets in staged changes."
+    echo ""
+    echo "  1. Remove or replace the secret value (never commit real credentials)."
+    echo "  2. Use a placeholder, environment variable, or GitHub Secret reference instead."
+    echo "  3. If this is a confirmed false positive, add a regex to .gitleaks.toml"
+    echo "     [[allowlists]] and commit that config change first."
+    echo ""
+    exit 1
+fi
