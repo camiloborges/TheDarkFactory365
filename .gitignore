@@ -30,3 +30,7 @@ dark-factory-weather/sharepoint/solution/*.sppkg
 # Secrets
 *.pfx
 *.cer
+
+# Speckit integration caches
+.specify/extensions/.cache/
+.specify/integrations/.cache/
