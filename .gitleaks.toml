@@ -49,3 +49,10 @@ regexes = [
     # localhost and 127.0.0.1 URLs in config and tests
     '''https?://(localhost|127\.0\.0\.1)(:\d+)?''',
 ]
+
+[[allowlists]]
+description = "Documentation curl examples with literal placeholder key values"
+regexes = [
+    # dev-key-123 appears in curl -H X-Api-Key examples in docs and quickstart guides
+    '''dev-key-123''',
+]
